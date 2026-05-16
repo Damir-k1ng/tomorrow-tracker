@@ -1,0 +1,12 @@
+services:
+  bot:
+    build: .
+    container_name: tomorrow-tracker
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      DATABASE_PATH: /app/storage/tomorrow.db
+      TIMEZONE: Asia/Almaty
+    volumes:
+      - ./storage:/app/storage

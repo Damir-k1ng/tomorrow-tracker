@@ -1,0 +1,25 @@
+# Binaries
+/bin/
+/build/
+/tomorrow-tracker
+
+# Env files
+.env
+.env.local
+
+# SQLite database files
+storage/*.db
+storage/*.db-journal
+storage/*.db-shm
+storage/*.db-wal
+
+# OS / IDE
+.DS_Store
+**/.DS_Store
+.idea/
+.vscode/
+
+# Go
+*.test
+*.out
+vendor/
