@@ -72,6 +72,11 @@ func (s *Server) requireTelegramAuth(next http.Handler) http.Handler {
 		}
 		data, err := VerifyInitData(raw, s.botToken, initDataMaxAge)
 		if err != nil {
+			s.log.Warn("api: initData verification failed",
+				slog.String("reason", err.Error()),
+				slog.String("fields", initDataKeys(raw)),
+				slog.Int("raw_len", len(raw)),
+				slog.String("path", r.URL.Path))
 			WriteError(w, http.StatusUnauthorized, "недействительные данные авторизации")
 			return
 		}

@@ -121,6 +121,23 @@ func VerifyInitData(rawInitData, botToken string, maxAge time.Duration) (*InitDa
 	return &InitData{User: user, AuthDate: authDate, QueryID: values.Get("query_id")}, nil
 }
 
+// initDataKeys returns the sorted field NAMES present in a raw initData
+// payload — values are omitted, so the result carries no secrets or PII and is
+// safe to log. It exists purely to diagnose auth failures: a missing `hash`,
+// an unexpected `signature`-only payload, or a malformed query string.
+func initDataKeys(rawInitData string) string {
+	values, err := url.ParseQuery(rawInitData)
+	if err != nil {
+		return "<unparseable>"
+	}
+	keys := make([]string, 0, len(values))
+	for k := range values {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return strings.Join(keys, ",")
+}
+
 // buildDataCheckString assembles the canonical string Telegram signs: every
 // field except `hash` and `signature`, sorted by key, "key=value" per line.
 func buildDataCheckString(values url.Values) string {
