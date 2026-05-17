@@ -22,7 +22,7 @@ export function WeeklyProgress({ progress }: WeeklyProgressProps) {
       : 0;
 
   return (
-    <Card className="mb-3">
+    <Card glass className="mb-3">
       <div className="flex items-baseline justify-between gap-3">
         <span className="text-sm font-medium text-muted">Цель недели</span>
         <span className="text-xs text-subtle">

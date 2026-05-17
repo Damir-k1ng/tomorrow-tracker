@@ -100,7 +100,7 @@ function ActiveSessionCard({
   });
 
   return (
-    <Card className="mb-3 border-border-strong bg-surface-raised">
+    <Card glass className="mb-3 ring-1 ring-inset ring-accent/20">
       <div className="flex items-center gap-2">
         <span className="relative flex size-2.5" aria-hidden>
           <span className="absolute inline-flex size-full animate-ping rounded-pill bg-accent opacity-60" />
@@ -149,7 +149,7 @@ function StartSessionCard({
   lastResult: FinishSessionResult | null;
 }) {
   return (
-    <Card className="mb-3">
+    <Card glass className="mb-3">
       <div className="flex items-center gap-3">
         <span className="flex size-10 shrink-0 items-center justify-center rounded-pill bg-surface-raised">
           <Play className="size-4 text-accent" aria-hidden />
