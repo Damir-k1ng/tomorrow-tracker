@@ -106,14 +106,23 @@ func (s *Server) rateLimitByAdmin(rl *rateLimiter) func(http.Handler) http.Handl
 	}
 }
 
-// clientIP extracts the caller's IP. Railway sits behind a proxy, so the first
-// X-Forwarded-For entry is preferred; RemoteAddr is the fallback.
+// clientIP extracts the caller's IP for rate-limiting.
+//
+// SECURITY: X-Forwarded-For is partly client-controlled. A client may PREPEND
+// arbitrary entries, but it cannot append past the entry the trusted proxy
+// adds — so the RIGHTMOST entry is the address that actually connected to
+// Railway's edge proxy (the real client) and is not spoofable. Reading the
+// leftmost entry instead would let any caller mint a fresh rate-limit bucket
+// per request simply by rotating a header, defeating rate limiting entirely.
+//
+// This assumes exactly one trusted proxy hop (Railway's edge) in front of the
+// container, which is the deployment topology.
 func clientIP(r *http.Request) string {
 	if fwd := r.Header.Get("X-Forwarded-For"); fwd != "" {
-		if comma := strings.IndexByte(fwd, ','); comma >= 0 {
-			fwd = fwd[:comma]
+		parts := strings.Split(fwd, ",")
+		if last := strings.TrimSpace(parts[len(parts)-1]); last != "" {
+			return last
 		}
-		return strings.TrimSpace(fwd)
 	}
 	if host, _, err := net.SplitHostPort(r.RemoteAddr); err == nil {
 		return host

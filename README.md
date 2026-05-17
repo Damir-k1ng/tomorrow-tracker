@@ -96,7 +96,7 @@ Copy `.env.example` to `.env` and fill in the token + database URL.
 | `WEEKLY_TARGET_HOURS` | `30` | Weekly study goal |
 | `LOG_LEVEL` | `info` | `debug` / `info` / `warn` / `error` |
 | `PORT` | `8080` | HTTP port for the health + API endpoints (Railway sets this) |
-| `ADMIN_TELEGRAM_ID` | `165146312` | Telegram ID auto-promoted to the `admin` role (`0` disables) |
+| `ADMIN_TELEGRAM_ID` | `0` | Telegram ID auto-promoted to the `admin` role; `0` (default) disables auto-promotion — set it explicitly to enable |
 | `CORS_ALLOWED_ORIGINS` | `*` | Comma-separated CORS allow-list for the future Mini App |
 
 ---

@@ -125,7 +125,8 @@ func (s *Server) routes() http.Handler {
 		s.rateLimit(s.adminLimiter), s.requireTelegramAuth, s.requireAdmin,
 	))
 
-	return mux
+	// Baseline hardening headers wrap the whole surface — API, SPA and health.
+	return securityHeaders(mux)
 }
 
 // userRoutes is the sub-router for the user-facing API. It is mounted behind

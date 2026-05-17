@@ -47,6 +47,28 @@ func (s *Server) recoverPanic(next http.Handler) http.Handler {
 	})
 }
 
+// securityHeaders sets baseline hardening headers on every response — API,
+// SPA and health alike. It is the outermost wrapper around the whole mux.
+//
+//   - X-Content-Type-Options: nosniff — no MIME sniffing.
+//   - Referrer-Policy — never leak full URLs cross-origin.
+//   - Strict-Transport-Security — pin HTTPS (Railway terminates TLS at edge).
+//   - Content-Security-Policy: frame-ancestors — the Mini App must stay
+//     embeddable by the Telegram clients but by NO other site, which blocks
+//     clickjacking. X-Frame-Options cannot express an allow-list, so a CSP
+//     directive is used instead of (not alongside) it.
+func securityHeaders(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		h := w.Header()
+		h.Set("X-Content-Type-Options", "nosniff")
+		h.Set("Referrer-Policy", "strict-origin-when-cross-origin")
+		h.Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+		h.Set("Content-Security-Policy",
+			"frame-ancestors 'self' https://web.telegram.org https://*.telegram.org")
+		next.ServeHTTP(w, r)
+	})
+}
+
 // timeout bounds every downstream handler with a deadline so a slow query or
 // a large export can never hang a request indefinitely. The deadline rides on
 // the request context, so all pgx queries inherit it automatically.

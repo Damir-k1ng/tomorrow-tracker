@@ -112,6 +112,12 @@ func (s *Server) handleAdminListSessions(w http.ResponseWriter, r *http.Request)
 	WriteSuccess(w, http.StatusOK, pageData(items, pg, total))
 }
 
+// maxPatchBodyBytes caps the session-correction request body. A valid patch is
+// tiny (an int, a bool, ≤16 short flag strings, a ≤500-char reason), so 32 KiB
+// is generous; the cap stops a malformed/hostile body from being read into
+// memory unbounded.
+const maxPatchBodyBytes = 32 << 10
+
 // --- PATCH /api/v1/admin/sessions/{id} ---------------------------------------
 
 func (s *Server) handleAdminPatchSession(w http.ResponseWriter, r *http.Request) {
@@ -120,6 +126,8 @@ func (s *Server) handleAdminPatchSession(w http.ResponseWriter, r *http.Request)
 		WriteError(w, http.StatusBadRequest, err.Error())
 		return
 	}
+	// Bound the request body before any decoding.
+	r.Body = http.MaxBytesReader(w, r.Body, maxPatchBodyBytes)
 	patch, err := parseSessionPatch(r)
 	if err != nil {
 		WriteError(w, http.StatusBadRequest, err.Error())

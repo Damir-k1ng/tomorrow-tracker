@@ -58,8 +58,10 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("invalid WEEKLY_TARGET_HOURS: %v", err)
 	}
 
-	// Default admin is the project owner's Telegram ID; overridable via env.
-	adminID, err := strconv.ParseInt(getEnv("ADMIN_TELEGRAM_ID", "165146312"), 10, 64)
+	// Admin auto-promotion is opt-in: it activates only when ADMIN_TELEGRAM_ID
+	// is set in the environment. The default 0 disables it — no Telegram
+	// identity is hardcoded in the source tree.
+	adminID, err := strconv.ParseInt(getEnv("ADMIN_TELEGRAM_ID", "0"), 10, 64)
 	if err != nil {
 		return nil, fmt.Errorf("invalid ADMIN_TELEGRAM_ID: %w", err)
 	}

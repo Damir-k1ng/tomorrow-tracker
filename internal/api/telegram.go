@@ -17,9 +17,12 @@ import (
 	"time"
 )
 
-// initDataMaxAge bounds how old a Telegram initData payload may be. Telegram's
-// own examples use 24h; anything older is rejected as a stale/replayed login.
-const initDataMaxAge = 24 * time.Hour
+// initDataMaxAge bounds how old a Telegram initData payload may be — the
+// window in which a captured payload could be replayed. Telegram's examples
+// allow 24h; this is tightened to 6h because the Mini App receives fresh
+// initData every time it is launched, so a shorter window shrinks the replay
+// surface without affecting normal use.
+const initDataMaxAge = 6 * time.Hour
 
 // Verification errors. They are deliberately coarse so HTTP handlers can map
 // every failure to a single generic 401 without leaking which check failed.
