@@ -1,9 +1,10 @@
 import { Link } from 'react-router-dom';
-import { CalendarCheck, ChevronRight, Flame, LogOut, Settings as SettingsIcon, Timer } from 'lucide-react';
-import { PageHeader, Screen, StatCard } from '@/widgets';
+import { ChevronRight, LogOut, Settings as SettingsIcon } from 'lucide-react';
+import { PageHeader, Screen } from '@/widgets';
 import { Button, Card, Skeleton } from '@/shared/ui';
 import { useAuthStore } from '@/store';
 import { useProfileQuery } from '@/services/api';
+import type { UserProfile } from '@/entities/profile';
 import { userPaths } from '@/routes/paths';
 import { closeApp } from '@/telegram/sdk';
 import { formatHours } from '@/shared/lib/format';
@@ -11,8 +12,8 @@ import { formatHours } from '@/shared/lib/format';
 /**
  * User Profile — identity, lifetime study stats, and app entry points.
  *
- * Identity comes from the auth store (resolved at bootstrap); the stat tiles
- * come from GET /api/v1/user/me. The stats are secondary — if they fail to
+ * Identity comes from the auth store (resolved at bootstrap); the stat strip
+ * comes from GET /api/v1/user/me. The stats are secondary — if they fail to
  * load the page still works for identity and navigation.
  */
 export default function ProfilePage() {
@@ -39,32 +40,11 @@ export default function ProfilePage() {
       </Card>
 
       <h2 className="mb-2.5 mt-5 px-1 text-sm font-medium text-muted">Статистика</h2>
-      {profile.isPending && <StatsSkeleton />}
+      {profile.isPending && <Skeleton className="h-[5rem] w-full rounded-card" />}
       {profile.isError && (
         <p className="px-1 text-xs text-subtle">Не удалось загрузить статистику.</p>
       )}
-      {profile.isSuccess && (
-        <div className="grid grid-cols-3 gap-3">
-          <StatCard
-            icon={Timer}
-            label="Часы"
-            value={formatHours(profile.data.totalMinutes)}
-            hint="всего"
-          />
-          <StatCard
-            icon={CalendarCheck}
-            label="Сессий"
-            value={profile.data.totalSessions}
-            hint="завершено"
-          />
-          <StatCard
-            icon={Flame}
-            label="Серия"
-            value={profile.data.currentStreak}
-            hint={`рекорд ${profile.data.bestStreak}`}
-          />
-        </div>
-      )}
+      {profile.isSuccess && <StatStrip profile={profile.data} />}
 
       <Card className="mt-5 p-0">
         <Link
@@ -85,13 +65,29 @@ export default function ProfilePage() {
   );
 }
 
-/** Loading placeholder for the three stat tiles. */
-function StatsSkeleton() {
+/**
+ * StatStrip — three lifetime metrics in one row, divided by hairlines. A
+ * single compact card (no per-tile icon chrome) so all three read clearly
+ * even on a 320px screen.
+ */
+function StatStrip({ profile }: { profile: UserProfile }) {
   return (
-    <div className="grid grid-cols-3 gap-3">
-      {Array.from({ length: 3 }).map((_, i) => (
-        <Skeleton key={i} className="h-[5.5rem] w-full rounded-card" />
-      ))}
+    <Card className="flex divide-x divide-border p-0">
+      <Stat value={formatHours(profile.totalMinutes)} label="Часы" />
+      <Stat value={profile.totalSessions} label="Сессии" />
+      <Stat value={profile.currentStreak} label="Серия" />
+    </Card>
+  );
+}
+
+/** One column of the stat strip. */
+function Stat({ value, label }: { value: React.ReactNode; label: string }) {
+  return (
+    <div className="min-w-0 flex-1 px-2 py-4 text-center">
+      <p className="truncate text-xl font-semibold tabular-nums tracking-tight text-foreground">
+        {value}
+      </p>
+      <p className="mt-1 text-xs text-muted">{label}</p>
     </div>
   );
 }

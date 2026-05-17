@@ -137,8 +137,20 @@ func (b *Bot) setMenuButton() {
 	}
 	defer func() { _ = resp.Body.Close() }()
 
-	if resp.StatusCode != http.StatusOK {
-		b.log.Error("set menu button: unexpected status", slog.Int("status", resp.StatusCode))
+	// Trust the Bot API envelope, not the HTTP status: Telegram can return a
+	// 200 with {"ok":false}. Decode and check `ok` either way.
+	var result struct {
+		OK          bool   `json:"ok"`
+		Description string `json:"description"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		b.log.Error("set menu button: decode response failed",
+			slog.Int("status", resp.StatusCode), slog.String("error", err.Error()))
+		return
+	}
+	if !result.OK {
+		b.log.Error("set menu button: telegram rejected",
+			slog.Int("status", resp.StatusCode), slog.String("description", result.Description))
 		return
 	}
 	b.log.Info("mini app menu button set")
