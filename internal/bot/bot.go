@@ -43,6 +43,8 @@ func New(api *tgbotapi.BotAPI, router *Router, log *slog.Logger) *Bot {
 // Each update is wrapped in recovery + structured logging middleware so a
 // single bad update can never crash the loop.
 func (b *Bot) Run(ctx context.Context) {
+	b.registerCommands()
+
 	pipeline := middleware.Recover(b.log, middleware.Logger(b.log, b.router.Dispatch))
 
 	u := tgbotapi.NewUpdate(0)
@@ -69,4 +71,28 @@ func (b *Bot) Run(ctx context.Context) {
 			_ = pipeline(ctx, update)
 		}
 	}
+}
+
+// botCommands is the slash-command list registered with Telegram. The order
+// here is the order shown in the in-chat "/" menu. Command names are latin
+// ([a-z0-9_]); the descriptions are the Russian labels users see.
+var botCommands = []tgbotapi.BotCommand{
+	{Command: "study", Description: "▶️ Начать учебную сессию"},
+	{Command: "stop", Description: "⏹ Завершить сессию"},
+	{Command: "hours", Description: "⏱ Мои часы и прогресс"},
+	{Command: "schedule", Description: "📅 Расписание бассейна"},
+	{Command: "top", Description: "🏆 Топ-10 рейтинга"},
+	{Command: "help", Description: "ℹ️ Помощь"},
+	{Command: "start", Description: "🚀 Меню"},
+}
+
+// registerCommands publishes the slash-command list to Telegram so the in-chat
+// "/" menu is always populated from code — no manual BotFather setup. A
+// failure is non-fatal: the bot still runs, the menu just stays as it was.
+func (b *Bot) registerCommands() {
+	if _, err := b.api.Request(tgbotapi.NewSetMyCommands(botCommands...)); err != nil {
+		b.log.Error("failed to register bot commands", slog.String("error", err.Error()))
+		return
+	}
+	b.log.Info("bot commands registered", slog.Int("count", len(botCommands)))
 }

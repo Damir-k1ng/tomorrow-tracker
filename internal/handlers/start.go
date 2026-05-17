@@ -39,5 +39,26 @@ func (h *Handlers) Unknown(ctx context.Context, msg *tgbotapi.Message) error {
 		return err
 	}
 	kb := menu.Main()
-	return h.reply(msg.Chat.ID, "Используй кнопки меню ниже 👇", &kb)
+	return h.reply(msg.Chat.ID, "Используй кнопки меню ниже 👇 или команду /help", &kb)
+}
+
+const helpText = `ℹ️ Команды Tomorrow Tracker
+
+▶️ /study — начать учебную сессию
+⏹ /stop — завершить сессию
+⏱ /hours — мои часы и прогресс
+📅 /schedule — расписание бассейна
+🏆 /top — Топ-10 рейтинга
+🚀 /start — меню
+
+Можно пользоваться кнопками меню ниже или командами — как удобнее.`
+
+// Help handles the /help command — a concise command reference. It also
+// re-sends the menu keyboard so the buttons stay within reach.
+func (h *Handlers) Help(ctx context.Context, msg *tgbotapi.Message) error {
+	if _, err := h.ensureUser(ctx, msg.From); err != nil {
+		return err
+	}
+	kb := menu.Main()
+	return h.reply(msg.Chat.ID, helpText, &kb)
 }

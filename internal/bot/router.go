@@ -30,8 +30,20 @@ func (r *Router) Dispatch(ctx context.Context, update tgbotapi.Update) error {
 
 	if msg.IsCommand() {
 		switch msg.Command() {
-		case "start", "help":
+		case "start":
 			return r.h.Start(ctx, msg)
+		case "help":
+			return r.h.Help(ctx, msg)
+		case "study":
+			return r.h.StartSession(ctx, msg)
+		case "stop":
+			return r.h.EndSession(ctx, msg)
+		case "hours":
+			return r.h.MyHours(ctx, msg)
+		case "schedule":
+			return r.h.Schedule(ctx, msg)
+		case "top":
+			return r.h.Leaderboard(ctx, msg)
 		default:
 			return r.h.Unknown(ctx, msg)
 		}

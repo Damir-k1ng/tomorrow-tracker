@@ -76,11 +76,10 @@ tomorrow-tracker/
 Optional polishing inside BotFather:
 
 - `/setdescription` — short description shown in the bot profile
-- `/setcommands` — paste the list below to enable autocomplete
 
-```
-start - Запустить бота и показать меню
-```
+The slash-command list (`/study`, `/stop`, `/hours`, `/schedule`, `/top`,
+`/help`, `/start`) is **registered automatically** by the bot on startup via
+`setMyCommands` — no manual BotFather `/setcommands` step is needed.
 
 ---
 
