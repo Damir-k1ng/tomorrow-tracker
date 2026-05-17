@@ -8,16 +8,33 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/damirkabdulla/tomorrow-tracker/internal/models"
 )
+
+// ErrActiveSessionExists is returned by Create when the database rejects a new
+// session because the user already has an active one. It is the data-layer
+// counterpart of the "one active session per user" partial unique index — the
+// race-safe backstop for the service-level pre-check.
+var ErrActiveSessionExists = errors.New("active session already exists")
+
+// uniqueViolationCode is the PostgreSQL SQLSTATE for a unique-constraint
+// violation (used to recognise a duplicate active-session insert).
+const uniqueViolationCode = "23505"
 
 // SessionRepository describes session persistence operations.
 type SessionRepository interface {
 	GetActive(ctx context.Context, userID int64) (*models.Session, error)
 	Create(ctx context.Context, userID int64, startedAt time.Time) (*models.Session, error)
 	Finish(ctx context.Context, sessionID int64, endedAt time.Time, durationMinutes int) error
+	// FinishOwned closes a session only when it belongs to userID and is still
+	// active. The ownership + is_active guards live in the SQL WHERE clause, so
+	// the UPDATE is atomic: it can never finish another user's session and can
+	// never double-finish one. ErrNotFound means no row matched (wrong owner,
+	// unknown id, or already finished).
+	FinishOwned(ctx context.Context, sessionID, userID int64, endedAt time.Time, durationMinutes int) error
 	// ListOverlapping returns every session whose [started_at, ended_at|now)
 	// interval overlaps [from, to). Active sessions have zero EndedAt.
 	ListOverlapping(ctx context.Context, userID int64, from, to time.Time) ([]models.Session, error)
@@ -99,9 +116,33 @@ func (r *sessionRepo) Create(ctx context.Context, userID int64, startedAt time.T
 		IsActive:  true,
 	}
 	if err := r.db.QueryRow(ctx, q, userID, startedAt).Scan(&s.ID, &s.CreatedAt); err != nil {
+		// A unique violation here is the partial index uq_sessions_one_active
+		// rejecting a second active session — surface it as a typed error so
+		// the service maps it to a friendly "already active" response.
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == uniqueViolationCode {
+			return nil, ErrActiveSessionExists
+		}
 		return nil, fmt.Errorf("insert session: %w", err)
 	}
 	return s, nil
+}
+
+func (r *sessionRepo) FinishOwned(ctx context.Context, sessionID, userID int64, endedAt time.Time, durationMinutes int) error {
+	const q = `
+        UPDATE sessions
+        SET ended_at = $1, duration_minutes = $2, is_active = FALSE
+        WHERE id = $3 AND user_id = $4 AND is_active = TRUE`
+	tag, err := r.db.Exec(ctx, q, endedAt, durationMinutes, sessionID, userID)
+	if err != nil {
+		return fmt.Errorf("finish owned session: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		// No row matched: unknown id, not owned by userID, or already closed.
+		// The service decides how to surface each case to the user.
+		return ErrNotFound
+	}
+	return nil
 }
 
 func (r *sessionRepo) Finish(ctx context.Context, sessionID int64, endedAt time.Time, durationMinutes int) error {

@@ -1,11 +1,13 @@
 package api
 
 import (
+	"errors"
 	"log/slog"
 	"net/http"
 	"time"
 
 	"github.com/damirkabdulla/tomorrow-tracker/internal/models"
+	"github.com/damirkabdulla/tomorrow-tracker/internal/services"
 )
 
 // User-facing API handlers (/api/v1/user/*). Every handler here runs behind
@@ -47,7 +49,21 @@ func newSessionResponse(s models.Session) sessionResponse {
 	}
 }
 
-// userMeResponse is the GET /api/v1/user/me payload.
+// progressResponse is the caller's study progress for the current local day
+// and week. All values are server-computed in the configured timezone; the
+// Mini App renders them but never derives its own. WeeklyTargetMinutes lets the
+// client draw progress toward the goal without hardcoding it.
+type progressResponse struct {
+	TodayMinutes        int `json:"today_minutes"`
+	WeekMinutes         int `json:"week_minutes"`
+	RemainingMinutes    int `json:"remaining_minutes"`
+	WeeklyTargetMinutes int `json:"weekly_target_minutes"`
+}
+
+// userMeResponse is the GET /api/v1/user/me payload. It is also the Mini App's
+// session-recovery source: after a reopen/reconnect the client re-fetches /me
+// and restores active-session state from ActiveSession — never from a local
+// timer.
 type userMeResponse struct {
 	ID            int64            `json:"id"`
 	TelegramID    int64            `json:"telegram_id"`
@@ -59,6 +75,7 @@ type userMeResponse struct {
 	TotalSessions int64            `json:"total_sessions"`
 	LastStudyAt   *time.Time       `json:"last_study_at"`
 	ActiveSession *sessionResponse `json:"active_session"`
+	Progress      progressResponse `json:"progress"`
 }
 
 // pageMeta is the pagination block shared by paginated user listings.
@@ -140,6 +157,12 @@ func (s *Server) handleUserMe(w http.ResponseWriter, r *http.Request) {
 		active := newSessionResponse(*profile.ActiveSession)
 		resp.ActiveSession = &active
 	}
+	resp.Progress = progressResponse{
+		TodayMinutes:        profile.Progress.TodayMinutes,
+		WeekMinutes:         profile.Progress.WeekMinutes,
+		RemainingMinutes:    profile.Progress.RemainingMinutes,
+		WeeklyTargetMinutes: profile.WeeklyTargetMinutes,
+	}
 	WriteSuccess(w, http.StatusOK, resp)
 }
 
@@ -210,4 +233,116 @@ func (s *Server) handleUserLeaderboard(w http.ResponseWriter, r *http.Request) {
 			InTop:   snap.User.InTop,
 		},
 	})
+}
+
+// --- session lifecycle (Phase 3C) -------------------------------------------
+
+// streakResponse is the streak outcome attached to a finished session. It is
+// null in the parent payload when the streak update itself failed — a
+// deliberately non-fatal case: the session was still saved.
+type streakResponse struct {
+	Counted   bool `json:"counted"`
+	Current   int  `json:"current"`
+	Best      int  `json:"best"`
+	Continued bool `json:"continued"`
+	Broken    bool `json:"broken"`
+	NewRecord bool `json:"new_record"`
+}
+
+// finishSessionResponse is the POST /api/v1/user/sessions/{id}/finish payload:
+// the server-computed session length, the refreshed progress totals, and the
+// streak evaluation.
+type finishSessionResponse struct {
+	SessionMinutes int              `json:"session_minutes"`
+	Progress       progressResponse `json:"progress"`
+	Streak         *streakResponse  `json:"streak"`
+}
+
+// --- POST /api/v1/user/sessions/start ---------------------------------------
+
+// handleStartSession opens a new study session for the caller. The "one active
+// session per user" rule is enforced both by a service pre-check and a
+// database partial unique index — a duplicate start always yields 409.
+func (s *Server) handleStartSession(w http.ResponseWriter, r *http.Request) {
+	user := userFromContext(r.Context())
+	if user == nil { // middleware guarantees this; defensive only
+		WriteError(w, http.StatusUnauthorized, "требуется авторизация")
+		return
+	}
+
+	session, err := s.userAPI.StartSession(r.Context(), user.ID)
+	if err != nil {
+		if errors.Is(err, services.ErrSessionAlreadyActive) {
+			WriteError(w, http.StatusConflict, "у тебя уже есть активная сессия")
+			return
+		}
+		s.log.Error("api: start session failed", slog.String("error", err.Error()))
+		WriteError(w, http.StatusInternalServerError, "не удалось начать сессию")
+		return
+	}
+	WriteSuccess(w, http.StatusCreated, newSessionResponse(*session))
+}
+
+// --- POST /api/v1/user/sessions/{id}/finish ---------------------------------
+
+// handleFinishSession closes one specific session, addressed by its id. It
+// enforces the full lifecycle contract: a user may only finish their own,
+// still-active session. The duration is computed server-side; any client
+// timer is presentation-only and never trusted.
+func (s *Server) handleFinishSession(w http.ResponseWriter, r *http.Request) {
+	user := userFromContext(r.Context())
+	if user == nil {
+		WriteError(w, http.StatusUnauthorized, "требуется авторизация")
+		return
+	}
+	sessionID, err := parsePathID(r)
+	if err != nil {
+		WriteError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	result, err := s.userAPI.FinishSession(r.Context(), user.ID, sessionID)
+	if err != nil {
+		switch {
+		case errors.Is(err, services.ErrSessionNotFound):
+			WriteError(w, http.StatusNotFound, "сессия не найдена")
+		case errors.Is(err, services.ErrSessionNotOwned):
+			WriteError(w, http.StatusForbidden, "это не твоя сессия")
+		case errors.Is(err, services.ErrSessionAlreadyFinished):
+			WriteError(w, http.StatusConflict, "сессия уже завершена")
+		default:
+			s.log.Error("api: finish session failed", slog.String("error", err.Error()))
+			WriteError(w, http.StatusInternalServerError, "не удалось завершить сессию")
+		}
+		return
+	}
+
+	// A streak-update failure is non-fatal — the session itself was saved.
+	// Log it and return a null streak block rather than failing the response.
+	if result.StreakErr != nil {
+		s.log.Error("api: streak update failed",
+			slog.Int64("user_id", user.ID),
+			slog.String("error", result.StreakErr.Error()))
+	}
+
+	resp := finishSessionResponse{
+		SessionMinutes: result.SessionMinutes,
+		Progress: progressResponse{
+			TodayMinutes:        result.Progress.TodayMinutes,
+			WeekMinutes:         result.Progress.WeekMinutes,
+			RemainingMinutes:    result.Progress.RemainingMinutes,
+			WeeklyTargetMinutes: result.WeeklyTargetMinutes,
+		},
+	}
+	if result.Streak != nil {
+		resp.Streak = &streakResponse{
+			Counted:   result.Streak.Counted,
+			Current:   result.Streak.Current,
+			Best:      result.Streak.Best,
+			Continued: result.Streak.Continued,
+			Broken:    result.Streak.Broken,
+			NewRecord: result.Streak.NewRecord,
+		}
+	}
+	WriteSuccess(w, http.StatusOK, resp)
 }

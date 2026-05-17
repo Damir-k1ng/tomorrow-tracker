@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"testing"
 	"time"
 
@@ -28,10 +29,23 @@ type fakeSessionRepo struct {
 	byUser  map[int64][]models.Session // newest-first per user
 	weekly  []models.WeeklyTotal
 	readErr error
+	nextID  int64 // id sequence for Create
 }
 
 func newFakeSessionRepo() *fakeSessionRepo {
 	return &fakeSessionRepo{byUser: map[int64][]models.Session{}}
+}
+
+// findByID locates a session across all users by primary key.
+func (r *fakeSessionRepo) findByID(id int64) (*models.Session, int64, int) {
+	for uid, sessions := range r.byUser {
+		for i := range sessions {
+			if sessions[i].ID == id {
+				return &sessions[i], uid, i
+			}
+		}
+	}
+	return nil, 0, -1
 }
 
 func (r *fakeSessionRepo) GetActive(_ context.Context, userID int64) (*models.Session, error) {
@@ -102,27 +116,82 @@ func (r *fakeSessionRepo) WeeklyTotals(_ context.Context, _, _ time.Time) ([]mod
 	return r.weekly, nil
 }
 
-// --- inert write/unused paths ------------------------------------------------
+// --- write paths (functional, for the Phase 3C lifecycle tests) -------------
 
-func (r *fakeSessionRepo) Create(context.Context, int64, time.Time) (*models.Session, error) {
-	return nil, errors.New("not implemented in fake")
+// Create opens a session, enforcing the "one active per user" invariant the
+// real partial unique index guarantees in production.
+func (r *fakeSessionRepo) Create(_ context.Context, userID int64, startedAt time.Time) (*models.Session, error) {
+	if r.readErr != nil {
+		return nil, r.readErr
+	}
+	for _, s := range r.byUser[userID] {
+		if s.IsActive {
+			return nil, repositories.ErrActiveSessionExists
+		}
+	}
+	r.nextID++
+	s := models.Session{ID: r.nextID, UserID: userID, StartedAt: startedAt, IsActive: true, IsValid: true}
+	// Prepend — byUser is newest-first.
+	r.byUser[userID] = append([]models.Session{s}, r.byUser[userID]...)
+	cp := s
+	return &cp, nil
 }
-func (r *fakeSessionRepo) Finish(context.Context, int64, time.Time, int) error {
-	return errors.New("not implemented in fake")
+
+func (r *fakeSessionRepo) Finish(_ context.Context, sessionID int64, endedAt time.Time, durationMinutes int) error {
+	sess, _, _ := r.findByID(sessionID)
+	if sess == nil || !sess.IsActive {
+		return repositories.ErrNotFound
+	}
+	sess.IsActive = false
+	sess.EndedAt = endedAt
+	sess.DurationMinutes = durationMinutes
+	return nil
 }
+
+// FinishOwned closes a session only when it belongs to userID and is active —
+// mirroring the ownership + is_active guards of the real SQL WHERE clause.
+func (r *fakeSessionRepo) FinishOwned(_ context.Context, sessionID, userID int64, endedAt time.Time, durationMinutes int) error {
+	sess, _, _ := r.findByID(sessionID)
+	if sess == nil || sess.UserID != userID || !sess.IsActive {
+		return repositories.ErrNotFound
+	}
+	sess.IsActive = false
+	sess.EndedAt = endedAt
+	sess.DurationMinutes = durationMinutes
+	return nil
+}
+
 func (r *fakeSessionRepo) ListOverlapping(context.Context, int64, time.Time, time.Time) ([]models.Session, error) {
 	return nil, nil
 }
-func (r *fakeSessionRepo) GetByID(context.Context, int64) (*models.Session, error) {
-	return nil, repositories.ErrNotFound
+
+func (r *fakeSessionRepo) GetByID(_ context.Context, sessionID int64) (*models.Session, error) {
+	if r.readErr != nil {
+		return nil, r.readErr
+	}
+	sess, _, _ := r.findByID(sessionID)
+	if sess == nil {
+		return nil, repositories.ErrNotFound
+	}
+	cp := *sess
+	return &cp, nil
 }
+
 func (r *fakeSessionRepo) ListByUser(context.Context, int64, int) ([]models.Session, error) {
 	return nil, nil
 }
 
-// newTestUserAPI wires a UserAPIService over the given fake session repo.
-func newTestUserAPI(repo repositories.SessionRepository) *services.UserAPIService {
-	return services.NewUserAPIService(repo, services.NewLeaderboardService(repo, time.UTC))
+// newTestUserAPI wires a UserAPIService over the given fake repos. The session
+// and streak services use UTC and a 30h weekly target — enough for the user
+// endpoints under test, including the Phase 3C lifecycle.
+func newTestUserAPI(sessionRepo repositories.SessionRepository, userRepo repositories.UserRepository) *services.UserAPIService {
+	loc := time.UTC
+	return services.NewUserAPIService(
+		sessionRepo,
+		services.NewLeaderboardService(sessionRepo, loc),
+		services.NewSessionService(sessionRepo, loc, 30),
+		services.NewStreakService(userRepo, loc),
+	)
 }
 
 // newUserTestServer builds a routable API server whose user endpoints are
@@ -131,7 +200,7 @@ func newUserTestServer(sessionRepo *fakeSessionRepo) http.Handler {
 	userRepo := newAPIFakeRepo()
 	users := services.NewUserService(userRepo, 0) // 0 → no admin auto-promotion
 	admin := services.NewAdminService(nil, nil, nil)
-	s := New("0", testBotToken, "*", users, newTestUserAPI(sessionRepo), admin, nil, logger.New("error"))
+	s := New("0", testBotToken, "*", users, newTestUserAPI(sessionRepo, userRepo), admin, nil, logger.New("error"))
 	return s.routes()
 }
 
@@ -356,3 +425,140 @@ func firstID(items []sessionResponse) int64 {
 	}
 	return items[0].ID
 }
+
+// authPost performs an authenticated POST as the same fixed Telegram user as
+// authGet, so seeded sessions under testUserID belong to the caller.
+func authPost(t *testing.T, h http.Handler, path string) *httptest.ResponseRecorder {
+	t.Helper()
+	initData := buildInitData(testBotToken, TelegramUser{ID: 555, FirstName: "Aru"}, time.Now())
+	req := httptest.NewRequest(http.MethodPost, path, nil)
+	req.Header = authHeader(initData)
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	return rec
+}
+
+// --- POST /api/v1/user/sessions/start ---------------------------------------
+
+func TestStartSession_OpensActiveSession(t *testing.T) {
+	repo := newFakeSessionRepo()
+	rec := authPost(t, newUserTestServer(repo), "/api/v1/user/sessions/start")
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("status: got %d want 201 (body=%q)", rec.Code, rec.Body.String())
+	}
+	var sess sessionResponse
+	decodeData(t, rec, &sess)
+	if !sess.IsActive || sess.UserID != testUserID {
+		t.Errorf("session: got %+v want active session owned by user %d", sess, testUserID)
+	}
+}
+
+func TestStartSession_DuplicateReturns409(t *testing.T) {
+	repo := newFakeSessionRepo()
+	repo.byUser[testUserID] = []models.Session{
+		{ID: 1, UserID: testUserID, IsActive: true, StartedAt: time.Now()},
+	}
+	rec := authPost(t, newUserTestServer(repo), "/api/v1/user/sessions/start")
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("duplicate start: got %d want 409", rec.Code)
+	}
+	assertStructuredError(t, rec)
+}
+
+func TestStartSession_RequiresAuth(t *testing.T) {
+	rec := httptest.NewRecorder()
+	newUserTestServer(newFakeSessionRepo()).
+		ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/api/v1/user/sessions/start", nil))
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("unauthenticated start: got %d want 401", rec.Code)
+	}
+	assertStructuredError(t, rec)
+}
+
+// --- POST /api/v1/user/sessions/{id}/finish ---------------------------------
+
+func TestFinishSession_ClosesOwnActiveSession(t *testing.T) {
+	repo := newFakeSessionRepo()
+	srv := newUserTestServer(repo)
+
+	// Start a session, then finish it by id.
+	start := authPost(t, srv, "/api/v1/user/sessions/start")
+	var opened sessionResponse
+	decodeData(t, start, &opened)
+
+	rec := authPost(t, srv, "/api/v1/user/sessions/"+itoa(opened.ID)+"/finish")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("finish: got %d want 200 (body=%q)", rec.Code, rec.Body.String())
+	}
+	var fin finishSessionResponse
+	decodeData(t, rec, &fin)
+	if fin.Streak == nil {
+		t.Error("streak block must be present on a finished session")
+	}
+	// The session must no longer be active.
+	if s, _, _ := repo.findByID(opened.ID); s == nil || s.IsActive {
+		t.Errorf("session %d should be finished, got %+v", opened.ID, s)
+	}
+}
+
+func TestFinishSession_UnknownIDReturns404(t *testing.T) {
+	rec := authPost(t, newUserTestServer(newFakeSessionRepo()), "/api/v1/user/sessions/999/finish")
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("unknown session finish: got %d want 404", rec.Code)
+	}
+	assertStructuredError(t, rec)
+}
+
+func TestFinishSession_AlreadyFinishedReturns409(t *testing.T) {
+	repo := newFakeSessionRepo()
+	repo.byUser[testUserID] = []models.Session{
+		{ID: 5, UserID: testUserID, IsActive: false, DurationMinutes: 60, EndedAt: time.Now()},
+	}
+	rec := authPost(t, newUserTestServer(repo), "/api/v1/user/sessions/5/finish")
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("finish already-finished: got %d want 409", rec.Code)
+	}
+	assertStructuredError(t, rec)
+}
+
+func TestFinishSession_OtherUsersSessionReturns403(t *testing.T) {
+	repo := newFakeSessionRepo()
+	// An active session owned by a different user (id 2, not the caller).
+	repo.byUser[2] = []models.Session{
+		{ID: 77, UserID: 2, IsActive: true, StartedAt: time.Now()},
+	}
+	rec := authPost(t, newUserTestServer(repo), "/api/v1/user/sessions/77/finish")
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("finish other user's session: got %d want 403", rec.Code)
+	}
+	assertStructuredError(t, rec)
+}
+
+func TestFinishSession_InvalidIDReturns400(t *testing.T) {
+	rec := authPost(t, newUserTestServer(newFakeSessionRepo()), "/api/v1/user/sessions/abc/finish")
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("invalid session id: got %d want 400", rec.Code)
+	}
+	assertStructuredError(t, rec)
+}
+
+// --- /me carries progress (Phase 3C) ----------------------------------------
+
+func TestUserMe_IncludesProgressBlock(t *testing.T) {
+	rec := authGet(t, newUserTestServer(newFakeSessionRepo()), "/api/v1/user/me")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status: got %d want 200", rec.Code)
+	}
+	var me userMeResponse
+	decodeData(t, rec, &me)
+	// 30h weekly target → 1800 minutes, all remaining for a user with no sessions.
+	if me.Progress.WeeklyTargetMinutes != 1800 {
+		t.Errorf("weekly_target_minutes: got %d want 1800", me.Progress.WeeklyTargetMinutes)
+	}
+	if me.Progress.RemainingMinutes != 1800 {
+		t.Errorf("remaining_minutes: got %d want 1800", me.Progress.RemainingMinutes)
+	}
+}
+
+// itoa is a tiny int64→string helper for building request paths.
+func itoa(n int64) string { return strconv.FormatInt(n, 10) }

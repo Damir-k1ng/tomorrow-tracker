@@ -1,20 +1,34 @@
 import { CalendarCheck, Flame, Timer, Trophy } from 'lucide-react';
-import { PageHeader, QueryError, Screen, StatCard } from '@/widgets';
-import { Card, Skeleton } from '@/shared/ui';
+import {
+  PageHeader,
+  QueryError,
+  Screen,
+  SessionControl,
+  StatCard,
+  WeeklyProgress,
+} from '@/widgets';
+import { Skeleton } from '@/shared/ui';
 import { useAuthStore } from '@/store';
 import { useLeaderboardQuery, useProfileQuery } from '@/services/api';
+import { useReopenRefetch } from '@/shared/hooks/useReopenRefetch';
 import type { UserProfile } from '@/entities/profile';
-import { formatDateTime, formatHours } from '@/shared/lib/format';
+import { formatHours } from '@/shared/lib/format';
 
 /**
- * User Dashboard — the caller's study overview.
+ * User Dashboard — the caller's study overview and daily-use loop.
  *
- * Data: GET /api/v1/user/me (profile, streak, lifetime totals) drives the
- * tiles; GET /api/v1/user/leaderboard supplies the weekly rank. The rank query
- * is secondary — if it is still loading or fails, the rank tile degrades
- * gracefully to a placeholder while the rest of the dashboard renders.
+ * Data: GET /api/v1/user/me drives the session control, weekly progress and
+ * the stat tiles; GET /api/v1/user/leaderboard supplies the weekly rank. The
+ * rank query is secondary — if it is still loading or fails, the rank tile
+ * degrades gracefully while the rest of the dashboard renders.
+ *
+ * Recovery: useReopenRefetch re-fetches /me whenever the Mini App returns to
+ * visibility, so an active session is always restored from backend state
+ * after a Telegram close/reopen.
  */
 export default function DashboardPage() {
+  useReopenRefetch();
+
   const firstName = useAuthStore((s) => s.user?.firstName ?? '');
   const profile = useProfileQuery();
   const leaderboard = useLeaderboardQuery();
@@ -52,19 +66,8 @@ function DashboardContent({
 }) {
   return (
     <>
-      {profile.activeSession && (
-        <Card className="mb-3 flex items-center gap-3 border-border-strong">
-          <span className="flex size-9 shrink-0 items-center justify-center rounded-pill bg-surface-raised">
-            <Flame className="size-4 text-accent" aria-hidden />
-          </span>
-          <div>
-            <p className="text-sm font-medium text-foreground">Идёт учебная сессия</p>
-            <p className="text-xs text-muted">
-              Начата {formatDateTime(profile.activeSession.startedAt)}
-            </p>
-          </div>
-        </Card>
-      )}
+      <SessionControl activeSession={profile.activeSession} />
+      <WeeklyProgress progress={profile.progress} />
 
       <div className="grid grid-cols-2 gap-3">
         <StatCard
@@ -94,10 +97,14 @@ function DashboardContent({
 /** Loading placeholder shaped like the dashboard so the layout never jumps. */
 function DashboardSkeleton() {
   return (
-    <div className="grid grid-cols-2 gap-3">
-      {Array.from({ length: 4 }).map((_, i) => (
-        <Skeleton key={i} className="h-[5.5rem] w-full rounded-card" />
-      ))}
-    </div>
+    <>
+      <Skeleton className="mb-3 h-[11rem] w-full rounded-card" />
+      <Skeleton className="mb-3 h-[6.5rem] w-full rounded-card" />
+      <div className="grid grid-cols-2 gap-3">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <Skeleton key={i} className="h-[5.5rem] w-full rounded-card" />
+        ))}
+      </div>
+    </>
   );
 }

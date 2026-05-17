@@ -19,6 +19,18 @@ var ErrSessionAlreadyActive = errors.New("session already active")
 // not exist.
 var ErrNoActiveSession = errors.New("no active session")
 
+// Session-lifecycle errors for the id-addressed finish flow (Mini App).
+var (
+	// ErrSessionNotFound is returned when the session id does not exist.
+	ErrSessionNotFound = errors.New("session not found")
+	// ErrSessionNotOwned is returned when the session exists but belongs to a
+	// different user — a user may only finish their own sessions.
+	ErrSessionNotOwned = errors.New("session belongs to another user")
+	// ErrSessionAlreadyFinished is returned when the target session is no
+	// longer active — finished sessions are immutable from user flows.
+	ErrSessionAlreadyFinished = errors.New("session already finished")
+)
+
 // Progress is a snapshot of a user's study totals at a given moment.
 type Progress struct {
 	TodayMinutes     int
@@ -48,6 +60,10 @@ func NewSessionService(repo repositories.SessionRepository, loc *time.Location, 
 // Location exposes the configured timezone so handlers can format times consistently.
 func (s *SessionService) Location() *time.Location { return s.location }
 
+// WeeklyTargetMinutes is the weekly study goal expressed in minutes. The Mini
+// App uses it to render progress toward the goal without hardcoding 30h.
+func (s *SessionService) WeeklyTargetMinutes() int { return s.weeklyTargetHours * 60 }
+
 // Start opens a new session if none is active. The returned session uses the
 // service's local timezone for its StartedAt for display convenience.
 func (s *SessionService) Start(ctx context.Context, userID int64) (*models.Session, error) {
@@ -60,10 +76,66 @@ func (s *SessionService) Start(ctx context.Context, userID int64) (*models.Sessi
 	now := time.Now().In(s.location)
 	session, err := s.repo.Create(ctx, userID, now)
 	if err != nil {
+		// The partial unique index rejected a concurrent duplicate start —
+		// the pre-check above lost a race. Surface the same friendly error.
+		if errors.Is(err, repositories.ErrActiveSessionExists) {
+			return nil, ErrSessionAlreadyActive
+		}
 		return nil, fmt.Errorf("create session: %w", err)
 	}
 	session.StartedAt = session.StartedAt.In(s.location)
 	return session, nil
+}
+
+// FinishSession closes one specific session, addressed by its id, on behalf of
+// userID. Unlike Finish (which the bot uses to close "the" active session),
+// this enforces the full Mini App contract:
+//
+//   - the session must exist            → ErrSessionNotFound
+//   - the session must belong to userID → ErrSessionNotOwned
+//   - the session must still be active  → ErrSessionAlreadyFinished
+//
+// The duration is computed server-side from started_at to now; the client
+// timer is never trusted. The final UPDATE re-checks ownership and is_active
+// atomically, so a concurrent finish loses cleanly with ErrSessionAlreadyFinished.
+func (s *SessionService) FinishSession(ctx context.Context, userID, sessionID int64) (*FinishResult, error) {
+	sess, err := s.repo.GetByID(ctx, sessionID)
+	if err != nil {
+		if errors.Is(err, repositories.ErrNotFound) {
+			return nil, ErrSessionNotFound
+		}
+		return nil, fmt.Errorf("get session: %w", err)
+	}
+	if sess.UserID != userID {
+		return nil, ErrSessionNotOwned
+	}
+	if !sess.IsActive {
+		return nil, ErrSessionAlreadyFinished
+	}
+
+	now := time.Now().In(s.location)
+	startedLocal := sess.StartedAt.In(s.location)
+	duration := utils.MinutesBetween(startedLocal, now)
+
+	if err := s.repo.FinishOwned(ctx, sessionID, userID, now, duration); err != nil {
+		if errors.Is(err, repositories.ErrNotFound) {
+			// Lost a race: the session was finished between our check and the
+			// UPDATE. Idempotent outcome — report it as already finished.
+			return nil, ErrSessionAlreadyFinished
+		}
+		return nil, fmt.Errorf("finish session: %w", err)
+	}
+
+	progress, err := s.Progress(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("compute progress: %w", err)
+	}
+
+	return &FinishResult{
+		SessionMinutes: duration,
+		EndedAt:        now,
+		Progress:       progress,
+	}, nil
 }
 
 // FinishResult is the data needed to render the "session ended" message.

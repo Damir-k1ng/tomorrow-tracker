@@ -136,6 +136,10 @@ func (s *Server) userRoutes() http.Handler {
 	m.HandleFunc("GET /api/v1/user/me", s.handleUserMe)
 	m.HandleFunc("GET /api/v1/user/sessions", s.handleUserSessions)
 	m.HandleFunc("GET /api/v1/user/leaderboard", s.handleUserLeaderboard)
+	// Phase 3C session lifecycle. Distinct path shapes — "/sessions/start" and
+	// "/sessions/{id}/finish" — so they never collide with the listing above.
+	m.HandleFunc("POST /api/v1/user/sessions/start", s.handleStartSession)
+	m.HandleFunc("POST /api/v1/user/sessions/{id}/finish", s.handleFinishSession)
 	// Structured 404 for any other /api/v1/user/* path.
 	m.HandleFunc("/api/v1/user/", handleNotFound)
 	return m

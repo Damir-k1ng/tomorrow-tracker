@@ -44,6 +44,16 @@ CREATE TABLE IF NOT EXISTS sessions (
 CREATE INDEX IF NOT EXISTS idx_sessions_user_active
     ON sessions(user_id, is_active);
 
+-- Phase 3C: enforce the "one active session per user" invariant at the database
+-- level. A partial unique index lets any number of finished sessions coexist
+-- while permitting at most one row with is_active = TRUE per user. This closes
+-- the check-then-insert race in session creation: a concurrent duplicate start
+-- fails with a unique violation instead of opening a second active session.
+-- Idempotent (IF NOT EXISTS); safe on existing data — the bot has always
+-- enforced single-active, so no historical row violates it.
+CREATE UNIQUE INDEX IF NOT EXISTS uq_sessions_one_active
+    ON sessions(user_id) WHERE is_active;
+
 CREATE INDEX IF NOT EXISTS idx_sessions_user_started
     ON sessions(user_id, started_at);
 

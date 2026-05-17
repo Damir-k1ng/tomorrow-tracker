@@ -1,4 +1,4 @@
-import { mapSession } from '@/entities/session';
+import { mapProgress, mapSession } from '@/entities/session';
 import { toRole } from '@/entities/user';
 import type { RawUserProfile, UserProfile } from './types';
 
@@ -15,5 +15,6 @@ export function mapProfile(raw: RawUserProfile): UserProfile {
     totalSessions: raw.total_sessions,
     lastStudyAt: raw.last_study_at,
     activeSession: raw.active_session ? mapSession(raw.active_session) : null,
+    progress: mapProgress(raw.progress),
   };
 }

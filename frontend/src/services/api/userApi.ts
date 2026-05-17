@@ -1,12 +1,22 @@
 import { mapLeaderboard, type Leaderboard, type RawLeaderboard } from '@/entities/leaderboard';
 import { mapProfile, type RawUserProfile, type UserProfile } from '@/entities/profile';
-import { mapSession, type RawSession, type StudySession } from '@/entities/session';
+import {
+  mapFinishResult,
+  mapSession,
+  type FinishSessionResult,
+  type RawFinishSessionResult,
+  type RawSession,
+  type StudySession,
+} from '@/entities/session';
 import { apiClient } from './apiClient';
 
 /**
- * User data API — typed wrapper for the read-only user endpoints
- * (GET /api/v1/user/*). Every method maps the snake_case backend DTO into the
- * app's camelCase domain model, so call sites never see raw API shapes.
+ * User data API — typed wrapper for the user endpoints (/api/v1/user/*). Every
+ * method maps the snake_case backend DTO into the app's camelCase domain
+ * model, so call sites never see raw API shapes.
+ *
+ * Reads are GETs; the Phase 3C session lifecycle adds two POSTs (start/finish).
+ * Duration is always computed server-side — the client never sends a duration.
  */
 
 /** Default page size for the sessions listing — mirrors the backend default. */
@@ -64,5 +74,24 @@ export const userApi = {
   /** GET /api/v1/user/leaderboard — the weekly Top-N plus the caller's rank. */
   async getLeaderboard(signal?: AbortSignal): Promise<Leaderboard> {
     return mapLeaderboard(await apiClient.get<RawLeaderboard>('/user/leaderboard', { signal }));
+  },
+
+  /**
+   * POST /api/v1/user/sessions/start — open a new study session. The backend
+   * rejects a duplicate start (409) when one is already active.
+   */
+  async startSession(): Promise<StudySession> {
+    return mapSession(await apiClient.post<RawSession>('/user/sessions/start'));
+  },
+
+  /**
+   * POST /api/v1/user/sessions/{id}/finish — close the given session. The
+   * backend enforces ownership and active-state, and computes the duration
+   * itself; the client only supplies the session id.
+   */
+  async finishSession(sessionId: number): Promise<FinishSessionResult> {
+    return mapFinishResult(
+      await apiClient.post<RawFinishSessionResult>(`/user/sessions/${sessionId}/finish`),
+    );
   },
 };

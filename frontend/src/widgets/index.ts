@@ -7,5 +7,7 @@ export { OfflineNotice } from './OfflineNotice';
 export { ScreenSkeleton } from './ScreenSkeleton';
 export { RouteError } from './RouteError';
 export { QueryError, type QueryErrorProps } from './QueryError';
+export { SessionControl, type SessionControlProps } from './SessionControl';
+export { WeeklyProgress, type WeeklyProgressProps } from './WeeklyProgress';
 export { UserLayout } from './UserLayout';
 export { AdminLayout } from './AdminLayout';

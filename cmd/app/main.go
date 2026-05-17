@@ -72,7 +72,7 @@ func main() {
 	leaderboardSvc := services.NewLeaderboardService(sessionRepo, cfg.Timezone)
 	streakSvc := services.NewStreakService(userRepo, cfg.Timezone)
 	adminSvc := services.NewAdminService(adminRepo, sessionRepo, userRepo)
-	userAPISvc := services.NewUserAPIService(sessionRepo, leaderboardSvc)
+	userAPISvc := services.NewUserAPIService(sessionRepo, leaderboardSvc, sessionSvc, streakSvc)
 
 	h := handlers.New(tgAPI, userSvc, sessionSvc, leaderboardSvc, streakSvc, log)
 	router := bot.NewRouter(h)
