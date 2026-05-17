@@ -20,6 +20,22 @@ export function formatHours(minutes: number): string {
   return (minutes / 60).toLocaleString('ru-RU', { maximumFractionDigits: 1 });
 }
 
+/** The correct Russian plural of "день" for a count: день / дня / дней. */
+export function dayWord(days: number): string {
+  const n = Math.abs(Math.trunc(days));
+  const mod10 = n % 10;
+  const mod100 = n % 100;
+  if (mod10 === 1 && mod100 !== 11) return 'день';
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) return 'дня';
+  return 'дней';
+}
+
+/** A day count with its Russian plural: "1 день", "2 дня", "5 дней". */
+export function formatDayCount(days: number): string {
+  const n = Math.abs(Math.trunc(days));
+  return `${n} ${dayWord(n)}`;
+}
+
 /**
  * Format an elapsed-seconds count as a running clock: "MM:SS", or "H:MM:SS"
  * once it passes an hour. For the presentation-only live session timer — the
