@@ -75,10 +75,13 @@ function syncSafeArea(wa: TelegramWebApp): void {
   root.style.setProperty('--safe-right', `${device?.right ?? 0}px`);
 }
 
-function applyTheme(scheme: TelegramColorScheme): void {
+// applyDarkTheme pins the document to the dark theme. This is a dark-only
+// build: the Liquid Glass design commits to one designed dark theme and
+// deliberately does not follow the Telegram light scheme.
+function applyDarkTheme(): void {
   const root = document.documentElement;
-  root.classList.toggle('dark', scheme === 'dark');
-  root.classList.toggle('light', scheme === 'light');
+  root.classList.add('dark');
+  root.classList.remove('light');
 }
 
 // --- Lifecycle ---------------------------------------------------------------
@@ -93,9 +96,10 @@ export function initTelegram(onThemeChange?: (s: TelegramColorScheme) => void): 
   if (initialised) return;
   initialised = true;
 
+  applyDarkTheme();
+
   const wa = getWebApp();
   if (!wa) {
-    applyTheme('dark');
     return;
   }
 
@@ -104,7 +108,6 @@ export function initTelegram(onThemeChange?: (s: TelegramColorScheme) => void): 
   // Prevent an accidental swipe-down from closing the app mid-interaction.
   wa.disableVerticalSwipes?.();
 
-  applyTheme(wa.colorScheme);
   syncViewport(wa);
   syncSafeArea(wa);
 
@@ -113,8 +116,9 @@ export function initTelegram(onThemeChange?: (s: TelegramColorScheme) => void): 
     wa.setBackgroundColor?.('#0a0a0b');
   }
 
+  // The build is dark-only, so a Telegram theme change never re-themes the
+  // app; onThemeChange is still notified for any non-visual consumers.
   wa.onEvent('themeChanged', () => {
-    applyTheme(wa.colorScheme);
     onThemeChange?.(wa.colorScheme);
   });
   wa.onEvent('viewportChanged', () => syncViewport(wa));

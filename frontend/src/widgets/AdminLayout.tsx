@@ -19,9 +19,14 @@ const adminTabs: TabItem[] = [
 
 export function AdminLayout() {
   return (
-    <div className="flex h-viewport flex-col bg-background">
+    // `relative` anchors the floating TabBar; the background is left transparent
+    // so the body's designed dark gradient shows through.
+    <div className="relative flex h-viewport flex-col">
       <OfflineNotice />
-      <main className="no-scrollbar flex-1 overflow-y-auto">
+      <main
+        className="no-scrollbar flex-1 overflow-y-auto"
+        style={{ paddingBottom: 'calc(5.5rem + var(--safe-bottom))' }}
+      >
         <Outlet />
       </main>
       <TabBar items={adminTabs} />
