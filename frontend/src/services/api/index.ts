@@ -18,5 +18,8 @@ export {
   useAdminUsersQuery,
   useAdminUserQuery,
   useAuditLogsQuery,
+  useAdminSessionsQuery,
+  useCorrectSessionMutation,
   adminQueryKeys,
+  type AdminSessionFilter,
 } from './adminQueries';

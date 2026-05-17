@@ -1,22 +1,42 @@
-import { keepPreviousData, useQuery } from '@tanstack/react-query';
+import {
+  keepPreviousData,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query';
+import type {
+  SessionCorrectionResult,
+  SessionPatchInput,
+} from '@/entities/admin/types';
 import { adminApi, type AdminUserSort } from './adminApi';
 
 /**
  * React Query hooks for the admin-facing server state.
  *
- * Thin `useQuery` wrappers over `adminApi` methods — read-only, no mutations.
- * Paginated listings use `keepPreviousData` so the list never flashes empty
- * while the next page or a new search loads. Caching/retry policy comes from
- * the shared QueryProvider.
+ * Reads are thin `useQuery` wrappers over `adminApi` methods; paginated
+ * listings use `keepPreviousData` so the list never flashes empty while the
+ * next page or a new filter loads. The one mutation — session correction —
+ * invalidates every admin query on success, since a correction can ripple
+ * into stats, the users list and a user's streak.
  */
+
+/** Filters accepted by the admin sessions listing. */
+export interface AdminSessionFilter {
+  page: number;
+  valid?: boolean;
+  flagged?: boolean;
+  userId?: number;
+}
 
 /** Query keys for the admin server state — one source of truth. */
 export const adminQueryKeys = {
+  root: ['admin'] as const,
   stats: ['admin', 'stats'] as const,
   users: (page: number, search: string, sort: AdminUserSort) =>
     ['admin', 'users', page, search, sort] as const,
   user: (id: number) => ['admin', 'user', id] as const,
   audit: (page: number, action: string) => ['admin', 'audit', page, action] as const,
+  sessions: (filter: AdminSessionFilter) => ['admin', 'sessions', filter] as const,
 };
 
 /** GET /api/v1/admin/stats — operational counters for the admin dashboard. */
@@ -51,5 +71,31 @@ export function useAuditLogsQuery(page: number, action: string) {
     queryKey: adminQueryKeys.audit(page, action),
     queryFn: ({ signal }) => adminApi.listAuditLogs({ page, action: action || undefined }, signal),
     placeholderData: keepPreviousData,
+  });
+}
+
+/** GET /api/v1/admin/sessions — one page of the sessions listing. */
+export function useAdminSessionsQuery(filter: AdminSessionFilter) {
+  return useQuery({
+    queryKey: adminQueryKeys.sessions(filter),
+    queryFn: ({ signal }) => adminApi.listSessions(filter, signal),
+    placeholderData: keepPreviousData,
+  });
+}
+
+/**
+ * PATCH /api/v1/admin/sessions/{id} — correct a finished session.
+ *
+ * A correction can change session counters, a user's streak and the audit
+ * log, so on success every admin query is invalidated and re-derived from
+ * authoritative backend state — no optimistic updates.
+ */
+export function useCorrectSessionMutation() {
+  const queryClient = useQueryClient();
+  return useMutation<SessionCorrectionResult, unknown, { id: number; patch: SessionPatchInput }>({
+    mutationFn: ({ id, patch }) => adminApi.correctSession(id, patch),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: adminQueryKeys.root });
+    },
   });
 }

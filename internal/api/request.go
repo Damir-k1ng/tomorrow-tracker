@@ -258,3 +258,18 @@ func optionalInt64(r *http.Request, key string) *int64 {
 	}
 	return &n
 }
+
+// optionalBool parses an optional "true"/"false" query param. Anything else,
+// including an absent or malformed value, is treated as "no filter" (nil).
+func optionalBool(r *http.Request, key string) *bool {
+	switch strings.TrimSpace(r.URL.Query().Get(key)) {
+	case "true":
+		v := true
+		return &v
+	case "false":
+		v := false
+		return &v
+	default:
+		return nil
+	}
+}

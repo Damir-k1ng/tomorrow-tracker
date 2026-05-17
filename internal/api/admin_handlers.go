@@ -82,6 +82,36 @@ func (s *Server) handleAdminUserDetails(w http.ResponseWriter, r *http.Request) 
 	WriteSuccess(w, http.StatusOK, userDetailsDTO(details))
 }
 
+// --- GET /api/v1/admin/sessions ----------------------------------------------
+
+func (s *Server) handleAdminListSessions(w http.ResponseWriter, r *http.Request) {
+	pg, err := parsePagination(r)
+	if err != nil {
+		WriteError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	rows, total, err := s.admin.ListSessions(r.Context(), repositories.SessionListParams{
+		UserID:   optionalInt64(r, "user_id"),
+		Valid:    optionalBool(r, "valid"),
+		Flagged:  r.URL.Query().Get("flagged") == "true",
+		SortDesc: true, // newest first
+		Limit:    pg.Limit,
+		Offset:   pg.Offset,
+	})
+	if err != nil {
+		s.log.Error("api: list sessions failed", slog.String("error", err.Error()))
+		WriteError(w, http.StatusInternalServerError, "не удалось получить список сессий")
+		return
+	}
+
+	items := make([]map[string]any, 0, len(rows))
+	for _, row := range rows {
+		items = append(items, adminSessionDTO(row))
+	}
+	WriteSuccess(w, http.StatusOK, pageData(items, pg, total))
+}
+
 // --- PATCH /api/v1/admin/sessions/{id} ---------------------------------------
 
 func (s *Server) handleAdminPatchSession(w http.ResponseWriter, r *http.Request) {
@@ -325,6 +355,16 @@ func sessionDTO(sess models.Session) map[string]any {
 		"anti_cheat_flags": rawOrNil(sess.AntiCheatFlags),
 		"created_at":       sess.CreatedAt,
 	}
+}
+
+// adminSessionDTO is one row of GET /api/v1/admin/sessions — the session shape
+// plus the owner's display identity, so the listing shows who a session
+// belongs to without a per-row lookup.
+func adminSessionDTO(row models.AdminSessionRow) map[string]any {
+	dto := sessionDTO(row.Session)
+	dto["owner_first_name"] = row.OwnerFirstName
+	dto["owner_username"] = row.OwnerUsername
+	return dto
 }
 
 func auditDTO(a models.AuditLog) map[string]any {

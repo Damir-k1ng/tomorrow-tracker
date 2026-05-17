@@ -61,3 +61,12 @@ type UserDetails struct {
 	ActiveSession  *Session
 	RecentSessions []Session
 }
+
+// AdminSessionRow is one row of GET /api/v1/admin/sessions: a session plus a
+// little of its owner's identity, so the listing can show who it belongs to
+// without an N+1 lookup.
+type AdminSessionRow struct {
+	Session        Session
+	OwnerFirstName string
+	OwnerUsername  string
+}

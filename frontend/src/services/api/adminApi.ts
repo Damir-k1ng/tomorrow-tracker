@@ -1,14 +1,19 @@
 import type {
+  AdminSession,
   AdminStats,
   AdminUser,
   AdminUserDetails,
   AuditLogEntry,
   PageMeta,
   Paginated,
+  RawAdminSession,
   RawAdminStats,
   RawAdminUser,
   RawAdminUserDetails,
   RawAuditLogEntry,
+  RawSessionCorrectionResult,
+  SessionCorrectionResult,
+  SessionPatchInput,
 } from '@/entities/admin/types';
 import { mapSession } from '@/entities/session';
 import { toRole } from '@/entities/user';
@@ -114,6 +119,21 @@ function mapAuditLog(r: RawAuditLogEntry): AuditLogEntry {
   };
 }
 
+function mapAdminSession(r: RawAdminSession): AdminSession {
+  return {
+    id: r.id,
+    userId: r.user_id,
+    startedAt: r.started_at,
+    endedAt: r.ended_at,
+    durationMinutes: r.duration_minutes,
+    isActive: r.is_active,
+    isValid: r.is_valid,
+    antiCheatFlags: r.anti_cheat_flags ?? [],
+    ownerFirstName: r.owner_first_name,
+    ownerUsername: r.owner_username,
+  };
+}
+
 export const adminApi = {
   /** GET /api/v1/admin/stats — operational counters. */
   async getStats(signal?: AbortSignal): Promise<AdminStats> {
@@ -160,6 +180,46 @@ export const adminApi = {
       { signal },
     );
     return { items: raw.items.map(mapAuditLog), pagination: mapPageMeta(raw.pagination) };
+  },
+
+  /** GET /api/v1/admin/sessions — paginated sessions list with optional filters. */
+  async listSessions(
+    params: { page: number; valid?: boolean; flagged?: boolean; userId?: number },
+    signal?: AbortSignal,
+  ): Promise<Paginated<AdminSession>> {
+    const query = new URLSearchParams({
+      page: String(params.page),
+      limit: String(ADMIN_PAGE_SIZE),
+    });
+    if (params.valid !== undefined) query.set('valid', String(params.valid));
+    if (params.flagged) query.set('flagged', 'true');
+    if (params.userId) query.set('user_id', String(params.userId));
+    const raw = await apiClient.get<RawPaginated<RawAdminSession>>(
+      `/admin/sessions?${query.toString()}`,
+      { signal },
+    );
+    return { items: raw.items.map(mapAdminSession), pagination: mapPageMeta(raw.pagination) };
+  },
+
+  /**
+   * PATCH /api/v1/admin/sessions/{id} — correct a finished session. The body
+   * carries the full editable state plus a mandatory reason; the backend
+   * rejects corrections of active sessions (409) and writes an immutable
+   * audit record for every change.
+   */
+  async correctSession(id: number, patch: SessionPatchInput): Promise<SessionCorrectionResult> {
+    const raw = await apiClient.patch<RawSessionCorrectionResult>(`/admin/sessions/${id}`, {
+      duration_minutes: patch.durationMinutes,
+      is_valid: patch.isValid,
+      anti_cheat_flags: patch.antiCheatFlags,
+      reason: patch.reason,
+    });
+    return {
+      sessionId: raw.session_id,
+      streakRecomputed: raw.streak_recomputed,
+      currentStreak: raw.current_streak,
+      bestStreak: raw.best_streak,
+    };
   },
 
   /**

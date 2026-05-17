@@ -45,6 +45,18 @@ type AuditListParams struct {
 	Offset   int
 }
 
+// SessionListParams drives the paginated admin sessions listing. Every filter
+// is optional; Flagged narrows to sessions carrying anti-cheat evidence (a
+// non-empty anti_cheat_flags array) — the moderation queue.
+type SessionListParams struct {
+	UserID   *int64 // optional: only this owner's sessions
+	Valid    *bool  // optional: filter by is_valid
+	Flagged  bool   // when true: only sessions with anti_cheat_flags != '[]'
+	SortDesc bool
+	Limit    int
+	Offset   int
+}
+
 // SessionPatch carries the fields an admin may change on a finished session.
 // DurationMinutes and IsValid are nil when absent from the request, so an
 // admin can change one field without restating the others. AntiCheatFlags is
@@ -77,6 +89,9 @@ type AdminRepository interface {
 	Stats(ctx context.Context) (*models.AdminStats, error)
 	ListUsers(ctx context.Context, p UserListParams) (users []models.User, total int64, err error)
 	ListAuditLogs(ctx context.Context, p AuditListParams) (logs []models.AuditLog, total int64, err error)
+	// ListSessions returns a page of sessions (with owner identity) plus the
+	// total row count, honouring the optional user / validity / flagged filters.
+	ListSessions(ctx context.Context, p SessionListParams) (rows []models.AdminSessionRow, total int64, err error)
 	// CorrectSessionWithAudit applies an admin correction to a finished
 	// session, writes the immutable audit record, and — when the correction
 	// changes the session's streak qualification — deterministically rebuilds
@@ -215,6 +230,62 @@ func (r *adminRepo) ListAuditLogs(ctx context.Context, p AuditListParams) ([]mod
 			l.AfterData = json.RawMessage(*afterJSON)
 		}
 		out = append(out, l)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, 0, fmt.Errorf("rows: %w", err)
+	}
+	return out, total, nil
+}
+
+func (r *adminRepo) ListSessions(ctx context.Context, p SessionListParams) ([]models.AdminSessionRow, int64, error) {
+	dir := "DESC"
+	if !p.SortDesc {
+		dir = "ASC"
+	}
+	// Filters are all parameter-driven (no interpolation). $2 = Flagged: when
+	// false the term collapses to TRUE; when true it requires a non-empty
+	// anti_cheat_flags array. COUNT(*) OVER() yields the unpaginated total.
+	q := fmt.Sprintf(`
+        SELECT s.id, s.user_id, s.started_at, s.ended_at, s.duration_minutes,
+               s.is_active, s.created_at, s.is_valid, s.anti_cheat_flags::text,
+               u.first_name, u.username,
+               COUNT(*) OVER() AS total
+        FROM sessions s
+        JOIN users u ON u.id = s.user_id
+        WHERE ($1::bigint IS NULL OR s.user_id = $1)
+          AND ($2::bool IS NULL OR s.is_valid = $2)
+          AND (NOT $3::bool OR s.anti_cheat_flags <> '[]'::jsonb)
+        ORDER BY s.started_at %s, s.id %s
+        LIMIT $4 OFFSET $5`, dir, dir)
+
+	rows, err := r.db.Query(ctx, q, p.UserID, p.Valid, p.Flagged, p.Limit, p.Offset)
+	if err != nil {
+		return nil, 0, fmt.Errorf("list sessions: %w", err)
+	}
+	defer rows.Close()
+
+	var (
+		out   []models.AdminSessionRow
+		total int64
+	)
+	for rows.Next() {
+		var (
+			row     models.AdminSessionRow
+			endedAt *time.Time
+			flags   string
+		)
+		if err := rows.Scan(
+			&row.Session.ID, &row.Session.UserID, &row.Session.StartedAt, &endedAt,
+			&row.Session.DurationMinutes, &row.Session.IsActive, &row.Session.CreatedAt,
+			&row.Session.IsValid, &flags, &row.OwnerFirstName, &row.OwnerUsername, &total,
+		); err != nil {
+			return nil, 0, fmt.Errorf("scan session row: %w", err)
+		}
+		if endedAt != nil {
+			row.Session.EndedAt = *endedAt
+		}
+		row.Session.AntiCheatFlags = json.RawMessage(flags)
+		out = append(out, row)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, 0, fmt.Errorf("rows: %w", err)

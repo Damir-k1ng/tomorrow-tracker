@@ -50,6 +50,12 @@ func (s *AdminService) ListAuditLogs(ctx context.Context, p repositories.AuditLi
 	return s.admin.ListAuditLogs(ctx, p)
 }
 
+// ListSessions returns a page of sessions (with owner identity) plus the total
+// row count, honouring the optional user / validity / flagged filters.
+func (s *AdminService) ListSessions(ctx context.Context, p repositories.SessionListParams) ([]models.AdminSessionRow, int64, error) {
+	return s.admin.ListSessions(ctx, p)
+}
+
 // UserDetails composes the per-user admin view: profile, streak (carried on
 // the user record), total study minutes, the current active session if any,
 // and the last 20 sessions.

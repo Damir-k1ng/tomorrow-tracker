@@ -118,3 +118,76 @@ export interface RawAuditLogEntry {
   reason: string | null;
   created_at: string;
 }
+
+/**
+ * The fixed anti-cheat evidence vocabulary. Must stay in lockstep with the
+ * backend whitelist (internal/api/request.go `allowedAntiCheatFlags`) — the
+ * API rejects any flag outside this set.
+ */
+export const ANTI_CHEAT_FLAGS = [
+  'manual_review',
+  'suspicious_duration',
+  'rapid_restarts',
+  'overlap_detected',
+  'admin_invalidated',
+] as const;
+
+export type AntiCheatFlag = (typeof ANTI_CHEAT_FLAGS)[number];
+
+/** One row of GET /api/v1/admin/sessions — a session plus its owner identity. */
+export interface AdminSession {
+  id: number;
+  userId: number;
+  startedAt: string;
+  endedAt: string | null;
+  durationMinutes: number;
+  isActive: boolean;
+  isValid: boolean;
+  antiCheatFlags: string[];
+  ownerFirstName: string;
+  ownerUsername: string;
+}
+
+/** Raw admin-session DTO (snake_case). */
+export interface RawAdminSession {
+  id: number;
+  user_id: number;
+  started_at: string;
+  ended_at: string | null;
+  duration_minutes: number;
+  is_active: boolean;
+  is_valid: boolean;
+  anti_cheat_flags: string[] | null;
+  created_at: string;
+  owner_first_name: string;
+  owner_username: string;
+}
+
+/** The admin-supplied correction sent to PATCH /api/v1/admin/sessions/{id}. */
+export interface SessionPatchInput {
+  durationMinutes: number;
+  isValid: boolean;
+  antiCheatFlags: string[];
+  reason: string;
+}
+
+/** The outcome of a session correction, surfaced back to the admin UI. */
+export interface SessionCorrectionResult {
+  sessionId: number;
+  streakRecomputed: boolean;
+  currentStreak: number;
+  bestStreak: number;
+}
+
+/** Raw session-correction DTO (snake_case). */
+export interface RawSessionCorrectionResult {
+  session_id: number;
+  user_id: number;
+  old_duration_minutes: number;
+  new_duration_minutes: number;
+  old_is_valid: boolean;
+  new_is_valid: boolean;
+  streak_recomputed: boolean;
+  current_streak: number;
+  best_streak: number;
+}

@@ -9,5 +9,7 @@ export { RouteError } from './RouteError';
 export { QueryError, type QueryErrorProps } from './QueryError';
 export { SessionControl, type SessionControlProps } from './SessionControl';
 export { WeeklyProgress, type WeeklyProgressProps } from './WeeklyProgress';
+export { Pager, type PagerProps } from './Pager';
+export { AdminSessionCard, type AdminSessionCardProps } from './AdminSessionCard';
 export { UserLayout } from './UserLayout';
 export { AdminLayout } from './AdminLayout';

@@ -153,6 +153,7 @@ func (s *Server) adminRoutes() http.Handler {
 	m.HandleFunc("GET /api/v1/admin/stats", s.handleAdminStats)
 	m.HandleFunc("GET /api/v1/admin/users", s.handleAdminListUsers)
 	m.HandleFunc("GET /api/v1/admin/users/{id}", s.handleAdminUserDetails)
+	m.HandleFunc("GET /api/v1/admin/sessions", s.handleAdminListSessions)
 	// The correction endpoint carries an extra, stricter per-admin rate limit
 	// on top of the shared admin limiter — it mutates streak state and writes
 	// immutable audit rows. The limiter runs inside the admin chain, so the

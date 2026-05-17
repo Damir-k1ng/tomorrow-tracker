@@ -352,3 +352,58 @@ func TestIntegration_StreakRecompute_DurationThreshold(t *testing.T) {
 		t.Errorf("last_study_at must move to day 15: got %v", last)
 	}
 }
+
+// --- admin sessions listing --------------------------------------------------
+
+// TestIntegration_ListSessions_Filters proves the user / validity / flagged
+// filters and the COUNT(*) OVER() total all behave as expected.
+func TestIntegration_ListSessions_Filters(t *testing.T) {
+	pool := requireDB(t)
+	r := NewAdminRepository(pool, almatyTZ)
+	ctx := context.Background()
+
+	u1 := insertUser(t, pool, 201, "user")
+	u2 := insertUser(t, pool, 202, "user")
+	base := time.Date(2026, 5, 16, 20, 0, 0, 0, almatyTZ)
+	insertFinished(t, pool, u1, base, 60, true)                     // u1, valid, no flags
+	flagged := insertFinished(t, pool, u1, base.Add(time.Hour), 20, false) // u1, invalid
+	insertFinished(t, pool, u2, base, 90, true)                     // u2, valid
+
+	if _, err := pool.Exec(ctx,
+		`UPDATE sessions SET anti_cheat_flags = '["manual_review"]'::jsonb WHERE id = $1`,
+		flagged); err != nil {
+		t.Fatalf("flag session: %v", err)
+	}
+
+	// No filters → every session, total reflects the full set.
+	rows, total, err := r.ListSessions(ctx, SessionListParams{SortDesc: true, Limit: 20})
+	if err != nil {
+		t.Fatalf("list all: %v", err)
+	}
+	if total != 3 || len(rows) != 3 {
+		t.Errorf("unfiltered: got total=%d rows=%d, want 3/3", total, len(rows))
+	}
+
+	// User filter → only that owner's sessions.
+	_, total, err = r.ListSessions(ctx, SessionListParams{UserID: &u1, Limit: 20})
+	if err != nil || total != 2 {
+		t.Errorf("user filter: got total=%d err=%v, want 2", total, err)
+	}
+
+	// valid=false → only the invalid session.
+	valFalse := false
+	rows, total, err = r.ListSessions(ctx, SessionListParams{Valid: &valFalse, Limit: 20})
+	if err != nil || total != 1 || len(rows) != 1 || rows[0].Session.ID != flagged {
+		t.Errorf("valid=false: got total=%d rows=%d err=%v, want session %d", total, len(rows), err, flagged)
+	}
+
+	// flagged=true → only the session carrying anti-cheat evidence.
+	rows, total, err = r.ListSessions(ctx, SessionListParams{Flagged: true, Limit: 20})
+	if err != nil || total != 1 || len(rows) != 1 || rows[0].Session.ID != flagged {
+		t.Fatalf("flagged: got total=%d rows=%d err=%v, want session %d", total, len(rows), err, flagged)
+	}
+	// The JOIN must populate owner identity (telegram-only users have an empty
+	// first_name, so just assert the field is reachable, not its value).
+	_ = rows[0].OwnerFirstName
+	_ = rows[0].OwnerUsername
+}
