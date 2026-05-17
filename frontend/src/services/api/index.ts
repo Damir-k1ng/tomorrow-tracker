@@ -12,4 +12,11 @@ export {
   useFinishSessionMutation,
   userQueryKeys,
 } from './userQueries';
-export { adminApi, type ExportRange } from './adminApi';
+export { adminApi, ADMIN_PAGE_SIZE, type ExportRange, type AdminUserSort } from './adminApi';
+export {
+  useAdminStatsQuery,
+  useAdminUsersQuery,
+  useAdminUserQuery,
+  useAuditLogsQuery,
+  adminQueryKeys,
+} from './adminQueries';

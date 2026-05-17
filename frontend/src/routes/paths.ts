@@ -21,5 +21,13 @@ export const adminPaths = {
   moderation: '/admin/moderation',
 } as const;
 
+/** Route pattern for the admin user-detail screen (react-router param form). */
+export const adminUserDetailPattern = '/admin/users/:id';
+
+/** Build the concrete admin user-detail URL for a given user id. */
+export function adminUserDetailPath(id: number | string): string {
+  return `/admin/users/${id}`;
+}
+
 export type UserPath = (typeof userPaths)[keyof typeof userPaths];
 export type AdminPath = (typeof adminPaths)[keyof typeof adminPaths];

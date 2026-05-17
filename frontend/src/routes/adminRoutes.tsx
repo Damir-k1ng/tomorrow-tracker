@@ -2,7 +2,7 @@ import { createBrowserRouter, Navigate } from 'react-router-dom';
 import { AdminLayout, RouteError } from '@/widgets';
 import { RequireAdmin } from './guards';
 import { lazyPage } from './lazyPage';
-import { adminPaths } from './paths';
+import { adminPaths, adminUserDetailPattern } from './paths';
 
 /**
  * Admin App route tree. Mounted only when the backend confirms `role === admin`
@@ -21,6 +21,10 @@ export const adminRouter = createBrowserRouter([
     children: [
       { path: adminPaths.dashboard, element: lazyPage(() => import('@/pages/admin/AdminDashboardPage')) },
       { path: adminPaths.users, element: lazyPage(() => import('@/pages/admin/AdminUsersPage')) },
+      {
+        path: adminUserDetailPattern,
+        element: lazyPage(() => import('@/pages/admin/AdminUserDetailPage')),
+      },
       { path: adminPaths.sessions, element: lazyPage(() => import('@/pages/admin/AdminSessionsPage')) },
       { path: adminPaths.audit, element: lazyPage(() => import('@/pages/admin/AdminAuditPage')) },
       { path: adminPaths.exports, element: lazyPage(() => import('@/pages/admin/AdminExportsPage')) },

@@ -1,34 +1,89 @@
-import { ClipboardCheck, Flag, Flame, Timer, TrendingUp, Users } from 'lucide-react';
-import { PageHeader, Screen, StatCard } from '@/widgets';
-import { Card } from '@/shared/ui';
+import { Clock, Flame, Timer, TrendingUp, UserPlus, Users } from 'lucide-react';
+import { PageHeader, QueryError, Screen, StatCard } from '@/widgets';
+import { Skeleton } from '@/shared/ui';
+import { useAdminStatsQuery } from '@/services/api';
+import type { AdminStats } from '@/entities/admin/types';
 
 /**
- * Admin Dashboard — Phase 3A shell.
+ * Admin Dashboard — operational overview.
  *
- * Per the Phase 3A scope this is the dashboard SHELL only: six metric cards,
- * no charts and no live analytics. Values are placeholders; they are wired to
- * GET /api/v1/admin/stats (via adminApi) in a later phase.
+ * Data: GET /api/v1/admin/stats. The six tiles map 1:1 onto the counters the
+ * endpoint actually returns — no placeholder cards.
  */
 export default function AdminDashboardPage() {
+  const stats = useAdminStatsQuery();
+
   return (
     <Screen>
       <PageHeader title="Обзор" subtitle="Панель администратора" />
 
-      <div className="grid grid-cols-2 gap-3">
-        <StatCard icon={Users} label="Пользователи" value="—" hint="скоро" />
-        <StatCard icon={Timer} label="Сессии" value="—" hint="скоро" />
-        <StatCard icon={Flame} label="Активные серии" value="—" hint="скоро" />
-        <StatCard icon={TrendingUp} label="Топ пользователей" value="—" hint="скоро" />
-        <StatCard icon={Flag} label="Флаги" value="—" hint="скоро" />
-        <StatCard icon={ClipboardCheck} label="Корректировки" value="—" hint="скоро" />
-      </div>
+      {stats.isPending && <StatsSkeleton />}
 
-      <Card className="mt-3">
-        <p className="text-sm text-muted">
-          Это базовая панель администратора. Аналитика, графики и инструменты
-          модерации появятся в следующих фазах.
-        </p>
-      </Card>
+      {stats.isError && <QueryError error={stats.error} onRetry={() => void stats.refetch()} />}
+
+      {stats.isSuccess && <StatsGrid stats={stats.data} />}
     </Screen>
+  );
+}
+
+/** Format a number for a stat tile: integers plain, fractions to one decimal. */
+function formatNumber(value: number): string {
+  return value.toLocaleString('ru-RU', { maximumFractionDigits: 1 });
+}
+
+function StatsGrid({ stats }: { stats: AdminStats }) {
+  const newUsersHint =
+    stats.newUsers7d > 0 ? `+${formatNumber(stats.newUsers7d)} за неделю` : 'за всё время';
+
+  return (
+    <div className="grid grid-cols-2 gap-3">
+      <StatCard
+        icon={Users}
+        label="Пользователи"
+        value={formatNumber(stats.totalUsers)}
+        hint={newUsersHint}
+      />
+      <StatCard
+        icon={UserPlus}
+        label="Новые за 7д"
+        value={formatNumber(stats.newUsers7d)}
+        hint="пользователей"
+      />
+      <StatCard
+        icon={Timer}
+        label="Сессии"
+        value={formatNumber(stats.completedSessions)}
+        hint="завершено"
+      />
+      <StatCard
+        icon={Clock}
+        label="Активные"
+        value={formatNumber(stats.activeSessions)}
+        hint="идут сейчас"
+      />
+      <StatCard
+        icon={TrendingUp}
+        label="Часы учёбы"
+        value={formatNumber(stats.totalStudyHours)}
+        hint="всего"
+      />
+      <StatCard
+        icon={Flame}
+        label="Серии"
+        value={formatNumber(stats.bestStreak)}
+        hint={`рекорд · в среднем ${formatNumber(stats.averageStreak)}`}
+      />
+    </div>
+  );
+}
+
+/** Loading placeholder shaped like the stat grid so the layout never jumps. */
+function StatsSkeleton() {
+  return (
+    <div className="grid grid-cols-2 gap-3">
+      {Array.from({ length: 6 }).map((_, i) => (
+        <Skeleton key={i} className="h-[5.5rem] w-full rounded-card" />
+      ))}
+    </div>
   );
 }

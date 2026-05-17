@@ -1,9 +1,11 @@
 /**
- * Admin domain types — shapes for the existing Go Admin API.
+ * Admin domain types — shapes for the Go Admin API (/api/v1/admin/*).
  *
- * Phase 3A wires the typed layer; the Admin dashboard renders shell cards only
- * (no charts, no live analytics yet).
+ * Each domain object has an app-internal camelCase form and a snake_case
+ * `Raw*` DTO matching the backend exactly. Mapping lives in `adminApi.ts`.
  */
+import type { RawSession, StudySession } from '@/entities/session';
+import type { UserRole } from '@/entities/user';
 
 /** GET /api/v1/admin/stats — operational counters. */
 export interface AdminStats {
@@ -27,13 +29,92 @@ export interface RawAdminStats {
   new_users_7d: number;
 }
 
+/** Pagination metadata, app-internal shape. */
+export interface PageMeta {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+}
+
 /** Pagination envelope shared by admin list endpoints. */
 export interface Paginated<T> {
   items: T[];
-  pagination: {
-    page: number;
-    limit: number;
-    total: number;
-    totalPages: number;
-  };
+  pagination: PageMeta;
+}
+
+/** One row of GET /api/v1/admin/users. */
+export interface AdminUser {
+  id: number;
+  telegramId: number;
+  username: string;
+  firstName: string;
+  role: UserRole;
+  currentStreak: number;
+  bestStreak: number;
+  lastStudyAt: string | null;
+  createdAt: string;
+}
+
+/** Raw admin-user DTO (snake_case). */
+export interface RawAdminUser {
+  id: number;
+  telegram_id: number;
+  username: string;
+  first_name: string;
+  role: string;
+  current_streak: number;
+  best_streak: number;
+  last_study_at: string | null;
+  created_at: string;
+}
+
+/** GET /api/v1/admin/users/{id} — a user's full admin profile. */
+export interface AdminUserDetails {
+  profile: AdminUser;
+  streak: { current: number; best: number; lastStudyAt: string | null };
+  totalMinutes: number;
+  totalHours: number;
+  activeSession: StudySession | null;
+  recentSessions: StudySession[];
+}
+
+/** Raw user-details DTO (snake_case). */
+export interface RawAdminUserDetails {
+  profile: RawAdminUser;
+  streak: { current: number; best: number; last_study_at: string | null };
+  total_minutes: number;
+  total_hours: number;
+  active_session: RawSession | null;
+  recent_sessions: RawSession[];
+}
+
+/** One row of GET /api/v1/admin/audit-logs. */
+export interface AuditLogEntry {
+  id: number;
+  adminId: number;
+  action: string;
+  entityType: string | null;
+  entityId: number | null;
+  targetUserId: number | null;
+  reason: string | null;
+  createdAt: string;
+}
+
+/**
+ * Raw audit-log DTO (snake_case). The before/after JSON snapshots are not
+ * surfaced in the list view, so they are typed loosely and ignored by the
+ * mapper.
+ */
+export interface RawAuditLogEntry {
+  id: number;
+  admin_id: number;
+  action: string;
+  entity_type: string | null;
+  entity_id: number | null;
+  target_user_id: number | null;
+  before_data: unknown;
+  after_data: unknown;
+  reason: string | null;
+  created_at: string;
 }
