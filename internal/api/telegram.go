@@ -52,15 +52,18 @@ type InitData struct {
 // official WebApp verification flow:
 //
 //  1. Parse the URL-encoded payload.
-//  2. Build the data-check-string: all fields except `hash` and `signature`,
-//     sorted by key, joined as "key=value" with '\n'.
+//  2. Build the data-check-string: all fields except `hash`, sorted by key,
+//     joined as "key=value" with '\n'.
 //  3. secret_key  = HMAC_SHA256(key="WebAppData", data=bot_token)
 //  4. expected    = HMAC_SHA256(key=secret_key, data=data_check_string)
 //  5. Constant-time compare expected (hex) against the supplied `hash`.
 //  6. Reject payloads older than maxAge.
 //
-// The `signature` field (Telegram's separate Ed25519 third-party signature) is
-// excluded from the data-check-string, matching Telegram's reference behavior.
+// The `signature` field (Telegram's Ed25519 third-party tag, added in Bot API
+// 8.0) IS part of the data-check-string: Telegram computes the HMAC `hash`
+// over every received field except `hash` itself, `signature` included.
+// Excluding it would produce a different string and a false signature
+// mismatch — which is exactly the bug this comment used to describe.
 //
 // This is security-critical: an invalid signature or expired payload yields an
 // error and the caller MUST treat the request as unauthenticated.
@@ -139,11 +142,15 @@ func initDataKeys(rawInitData string) string {
 }
 
 // buildDataCheckString assembles the canonical string Telegram signs: every
-// field except `hash` and `signature`, sorted by key, "key=value" per line.
+// received field EXCEPT `hash`, sorted by key, "key=value" per line.
+//
+// `signature` is intentionally kept: Telegram's HMAC `hash` covers every field
+// except `hash` itself, so dropping `signature` here would break verification
+// for every modern (Bot API 8.0+) Mini App launch.
 func buildDataCheckString(values url.Values) string {
 	keys := make([]string, 0, len(values))
 	for k := range values {
-		if k == "hash" || k == "signature" {
+		if k == "hash" {
 			continue
 		}
 		keys = append(keys, k)

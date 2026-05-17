@@ -19,13 +19,24 @@ const testBotToken = "123456:TEST-bot-token-AbCdEf"
 // buildInitData produces a correctly-signed initData string for testing,
 // reusing the exact algorithm VerifyInitData expects.
 func buildInitData(botToken string, user TelegramUser, authDate time.Time) string {
+	return buildInitDataWith(botToken, user, authDate, "")
+}
+
+// buildInitDataWith builds a correctly-signed initData, optionally including a
+// `signature` field. It mirrors real Telegram: the HMAC `hash` is computed
+// over EVERY field except `hash` itself — `signature` included — so a payload
+// built here with a signature is signed the way Telegram signs it.
+func buildInitDataWith(botToken string, user TelegramUser, authDate time.Time, signature string) string {
 	userJSON, _ := json.Marshal(user)
 	v := url.Values{}
 	v.Set("auth_date", strconv.FormatInt(authDate.Unix(), 10))
 	v.Set("query_id", "AAH123")
 	v.Set("user", string(userJSON))
+	if signature != "" {
+		v.Set("signature", signature)
+	}
 
-	// data-check-string: all keys sorted, "key=value" joined by '\n'.
+	// data-check-string: every key except `hash`, sorted, "key=value" by '\n'.
 	keys := make([]string, 0, len(v))
 	for k := range v {
 		keys = append(keys, k)
@@ -100,14 +111,25 @@ func TestVerifyInitData_MissingHash(t *testing.T) {
 	}
 }
 
-func TestVerifyInitData_SignatureFieldExcludedFromCheck(t *testing.T) {
-	// A `signature` field must not break HMAC validation — it is excluded
-	// from the data-check-string. Appending it to an otherwise valid payload
-	// should still verify.
-	raw := buildInitData(testBotToken, sampleUser(), time.Now())
-	withSig := raw + "&signature=" + url.QueryEscape("ed25519-third-party-sig")
+func TestVerifyInitData_WithSignatureField(t *testing.T) {
+	// Real Telegram (Bot API 8.0+) sends a `signature` field, and the HMAC
+	// `hash` is computed OVER it. A payload signed with `signature` present
+	// must verify — this is the exact launch shape of a modern Mini App.
+	raw := buildInitDataWith(testBotToken, sampleUser(), time.Now(), "ed25519-third-party-sig")
 
-	if _, err := VerifyInitData(withSig, testBotToken, initDataMaxAge); err != nil {
-		t.Fatalf("signature field should be ignored, got error: %v", err)
+	if _, err := VerifyInitData(raw, testBotToken, initDataMaxAge); err != nil {
+		t.Fatalf("payload with a signature field should verify, got error: %v", err)
+	}
+}
+
+func TestVerifyInitData_TamperedSignatureFails(t *testing.T) {
+	// `signature` is part of the data-check-string, so altering it after
+	// signing must invalidate the HMAC `hash`.
+	raw := buildInitDataWith(testBotToken, sampleUser(), time.Now(), "original-signature")
+	tampered := strings.Replace(raw,
+		url.QueryEscape("original-signature"), url.QueryEscape("evil-signature"), 1)
+
+	if _, err := VerifyInitData(tampered, testBotToken, initDataMaxAge); !errors.Is(err, ErrInitDataBadSignature) {
+		t.Fatalf("expected ErrInitDataBadSignature for a tampered signature, got %v", err)
 	}
 }
