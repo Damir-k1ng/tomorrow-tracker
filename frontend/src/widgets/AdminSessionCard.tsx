@@ -155,7 +155,8 @@ function CorrectionForm({ session, onDone }: { session: AdminSession; onDone: ()
     : null;
 
   return (
-    <div className="space-y-4 border-t border-border p-4">
+    // A recessed editing well — visually distinct from the row it expands from.
+    <div className="space-y-4 border-t border-border bg-background/50 p-4">
       <Field label="Длительность, мин">
         <input
           type="number"
