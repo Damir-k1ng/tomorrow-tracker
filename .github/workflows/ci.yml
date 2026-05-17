@@ -1,0 +1,76 @@
+name: CI
+
+# Runs on every push to main and on pull requests: the same checks done
+# locally before each deploy, so a broken build or failing test is caught
+# automatically instead of by hand.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  backend:
+    name: Backend (Go)
+    runs-on: ubuntu-latest
+
+    # An ephemeral PostgreSQL for the build-tagged integration tests. It is a
+    # throwaway database, so the suite's TRUNCATE/migrate cycle is safe here.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: tomorrow_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+          cache: true
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Build
+        run: go build ./...
+
+      - name: Test (hermetic, race detector)
+        run: go test -race ./...
+
+      - name: Integration tests (PostgreSQL)
+        env:
+          TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/tomorrow_test
+        run: go test -tags=integration -race ./internal/repositories/...
+
+  frontend:
+    name: Frontend (types + build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build (tsc type-check + Vite)
+        run: npm run build
