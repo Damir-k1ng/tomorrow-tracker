@@ -1,47 +1,55 @@
-// Package database creates and configures the SQLite connection.
-// The interface used by repositories (*sql.DB) is identical for PostgreSQL,
-// so swapping the driver later requires only changing this file.
+// Package database creates and configures the PostgreSQL connection pool.
+//
+// Repositories depend only on *pgxpool.Pool. The startup sequence here —
+// parse URL, open pool, ping, migrate — is the single place where a
+// misconfigured database fails the deploy loudly and early.
 package database
 
 import (
-	"database/sql"
+	"context"
 	"fmt"
-	"path/filepath"
 	"time"
 
-	_ "modernc.org/sqlite"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// New opens (or creates) the SQLite database file and applies migrations.
-func New(path string) (*sql.DB, error) {
-	if dir := filepath.Dir(path); dir != "" && dir != "." {
-		if err := ensureDir(dir); err != nil {
-			return nil, fmt.Errorf("ensure storage dir: %w", err)
-		}
-	}
-
-	// _pragma options enable foreign keys and write-ahead logging for concurrency.
-	dsn := fmt.Sprintf("file:%s?_pragma=foreign_keys(1)&_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)", path)
-
-	db, err := sql.Open("sqlite", dsn)
+// New parses the DATABASE_URL, opens a pgx connection pool, verifies
+// connectivity with a bounded ping, and applies the schema migrations.
+//
+// A non-nil error here is fatal: the caller should log it and exit, since the
+// bot cannot function without its database.
+func New(ctx context.Context, databaseURL string) (*pgxpool.Pool, error) {
+	cfg, err := pgxpool.ParseConfig(databaseURL)
 	if err != nil {
-		return nil, fmt.Errorf("open sqlite: %w", err)
+		return nil, fmt.Errorf("parse DATABASE_URL: %w", err)
 	}
 
-	// SQLite is single-writer; one connection avoids "database is locked" surprises.
-	db.SetMaxOpenConns(1)
-	db.SetMaxIdleConns(1)
-	db.SetConnMaxLifetime(time.Hour)
+	// Conservative pool sizing — a polling Telegram bot handles one update at
+	// a time, so a small pool is plenty and keeps us well under Railway's
+	// PostgreSQL connection limits.
+	cfg.MaxConns = 10
+	cfg.MinConns = 1
+	cfg.MaxConnLifetime = time.Hour
+	cfg.MaxConnIdleTime = 30 * time.Minute
 
-	if err := db.Ping(); err != nil {
-		_ = db.Close()
-		return nil, fmt.Errorf("ping sqlite: %w", err)
+	pool, err := pgxpool.NewWithConfig(ctx, cfg)
+	if err != nil {
+		return nil, fmt.Errorf("create connection pool: %w", err)
 	}
 
-	if err := migrate(db); err != nil {
-		_ = db.Close()
-		return nil, fmt.Errorf("migrate: %w", err)
+	// Bounded ping so a wrong host/credentials fails fast instead of hanging
+	// the Railway deploy.
+	pingCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+	if err := pool.Ping(pingCtx); err != nil {
+		pool.Close()
+		return nil, fmt.Errorf("ping database: %w", err)
 	}
 
-	return db, nil
+	if err := migrate(ctx, pool); err != nil {
+		pool.Close()
+		return nil, fmt.Errorf("apply migrations: %w", err)
+	}
+
+	return pool, nil
 }

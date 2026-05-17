@@ -1,0 +1,26 @@
+<!doctype html>
+<!--
+  PLACEHOLDER — not a real build.
+
+  This file is committed only so `//go:embed all:frontend/dist` and
+  `go build ./...` work before the Vite frontend is built. A real
+  `npm run build` overwrites this file and additionally emits
+  `.build_meta.json`, which this placeholder deliberately omits.
+
+  The Go server refuses to start in production (APP_ENV=production) when the
+  embedded SPA is missing `.build_meta.json` — see internal/web/verify.go.
+  Do NOT add `.build_meta.json` next to this placeholder.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Tomorrow Tracker — frontend not built</title>
+  </head>
+  <body>
+    <main>
+      <h1>Frontend not built</h1>
+      <p>Run <code>npm run build</code> in <code>frontend/</code> to generate the Mini App.</p>
+    </main>
+  </body>
+</html>

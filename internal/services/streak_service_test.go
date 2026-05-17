@@ -135,8 +135,31 @@ func (r *fakeUserRepo) GetByID(_ context.Context, id int64) (*models.User, error
 	return &cp, nil
 }
 
-func (r *fakeUserRepo) Upsert(_ context.Context, _ int64, _, _ string) (*models.User, error) {
-	return nil, errors.New("not used")
+func (r *fakeUserRepo) Upsert(_ context.Context, telegramID int64, username, firstName string) (*models.User, error) {
+	if r.user != nil && r.user.TelegramID == telegramID {
+		r.user.Username = username
+		r.user.FirstName = firstName
+	} else {
+		id := int64(1)
+		role := models.RoleUser
+		r.user = &models.User{
+			ID: id, TelegramID: telegramID, Username: username,
+			FirstName: firstName, Role: role,
+		}
+	}
+	cp := *r.user
+	return &cp, nil
+}
+
+func (r *fakeUserRepo) UpdateRole(_ context.Context, userID int64, role string) error {
+	if r.updateErr != nil {
+		return r.updateErr
+	}
+	if r.user == nil || r.user.ID != userID {
+		return repositories.ErrNotFound
+	}
+	r.user.Role = role
+	return nil
 }
 
 func (r *fakeUserRepo) UpdateStreak(_ context.Context, userID int64, current, best int, lastStudyAt time.Time) error {

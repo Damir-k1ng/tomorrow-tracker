@@ -1,0 +1,9 @@
+node_modules
+.vite
+*.local
+.DS_Store
+
+# Build output. The placeholder index.html is committed so the Go //go:embed
+# directive always resolves; real build artifacts are not tracked.
+dist/*
+!dist/index.html

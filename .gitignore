@@ -7,12 +7,6 @@
 .env
 .env.local
 
-# SQLite database files
-storage/*.db
-storage/*.db-journal
-storage/*.db-shm
-storage/*.db-wal
-
 # OS / IDE
 .DS_Store
 **/.DS_Store
@@ -23,3 +17,13 @@ storage/*.db-wal
 *.test
 *.out
 vendor/
+
+# Frontend
+frontend/node_modules/
+frontend/.vite/
+frontend/*.local
+
+# Embedded SPA build output — the placeholder index.html is committed so
+# `go build` / //go:embed always work; real build artifacts are not.
+frontend/dist/*
+!frontend/dist/index.html

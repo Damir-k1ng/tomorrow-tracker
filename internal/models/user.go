@@ -2,6 +2,15 @@ package models
 
 import "time"
 
+// Roles supported by the system. Stored in users.role; defaults to RoleUser.
+// Admin checks must compare against RoleAdmin — never hardcode Telegram IDs
+// in handlers.
+const (
+	RoleUser      = "user"
+	RoleAdmin     = "admin"
+	RoleModerator = "moderator"
+)
+
 // User represents a Telegram user registered in the bot.
 //
 // Streak fields:
@@ -17,6 +26,7 @@ type User struct {
 	TelegramID    int64
 	Username      string
 	FirstName     string
+	Role          string // one of RoleUser / RoleAdmin / RoleModerator
 	CreatedAt     time.Time
 	CurrentStreak int
 	BestStreak    int

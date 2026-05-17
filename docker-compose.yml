@@ -1,4 +1,20 @@
 services:
+  db:
+    image: postgres:16-alpine
+    container_name: tomorrow-tracker-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: tomorrow
+      POSTGRES_PASSWORD: tomorrow
+      POSTGRES_DB: tomorrow
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tomorrow -d tomorrow"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
   bot:
     build: .
     container_name: tomorrow-tracker
@@ -6,7 +22,12 @@ services:
     env_file:
       - .env
     environment:
-      DATABASE_PATH: /app/storage/tomorrow.db
+      # Overrides DATABASE_URL from .env — points at the compose db service.
+      DATABASE_URL: postgres://tomorrow:tomorrow@db:5432/tomorrow?sslmode=disable
       TIMEZONE: Asia/Almaty
-    volumes:
-      - ./storage:/app/storage
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pgdata:

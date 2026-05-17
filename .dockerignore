@@ -1,0 +1,14 @@
+# Build artifacts and deps — the Dockerfile rebuilds these from source.
+frontend/node_modules
+frontend/.vite
+tomorrow-tracker
+*.test
+*.out
+
+# Local env / VCS / OS noise
+.env
+.env.local
+.git
+.idea
+.vscode
+**/.DS_Store

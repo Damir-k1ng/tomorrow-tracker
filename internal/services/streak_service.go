@@ -11,8 +11,10 @@ import (
 
 // MinStreakSessionMinutes is the minimum session length (in minutes) that
 // counts toward a user's daily streak. Shorter sessions are ignored entirely
-// — they do not advance, reset, or refresh the streak.
-const MinStreakSessionMinutes = 30
+// — they do not advance, reset, or refresh the streak. The canonical value
+// lives in the repositories layer so the streak service and the admin
+// streak-recomputation query share a single source of truth.
+const MinStreakSessionMinutes = repositories.MinStreakSessionMinutes
 
 // StreakUpdate is the outcome of evaluating a completed session against the
 // streak rules. Counted=false means the session did not qualify (too short)
@@ -162,4 +164,3 @@ func computeStreakUpdate(prev StreakState, endedAt time.Time, loc *time.Location
 		}
 	}
 }
-

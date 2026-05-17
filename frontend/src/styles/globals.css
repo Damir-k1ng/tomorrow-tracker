@@ -1,0 +1,145 @@
+@import 'tailwindcss';
+
+/*
+  Tomorrow Tracker — Mini App design system.
+
+  Dark-first, Apple-inspired interaction quality (not Apple's UI). All visual
+  tokens live in @theme so Tailwind generates matching utilities
+  (bg-surface, text-muted, rounded-card, ...). Components consume tokens —
+  never hardcode raw colors, radii, or spacing.
+
+  The TS mirrors in src/design/*.ts expose the same values to JS (Framer
+  Motion, inline styles).
+*/
+@theme {
+  /* Typography — Inter only, with a system fallback chain. */
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+    'Helvetica Neue', Arial, sans-serif;
+
+  /* Color — dark-first, expressed in OKLCH for perceptual consistency. */
+  --color-background: oklch(14.5% 0.004 264);
+  --color-surface: oklch(19% 0.006 264);
+  --color-surface-raised: oklch(23.5% 0.008 264);
+  --color-border: oklch(29% 0.008 264);
+  --color-border-strong: oklch(38% 0.01 264);
+
+  --color-foreground: oklch(96.5% 0.003 264);
+  --color-muted: oklch(72% 0.007 264);
+  --color-subtle: oklch(54% 0.008 264);
+
+  --color-accent: oklch(64% 0.17 255);
+  --color-accent-hover: oklch(69% 0.17 255);
+  --color-accent-foreground: oklch(99% 0 0);
+
+  --color-success: oklch(72% 0.15 156);
+  --color-warning: oklch(80% 0.14 80);
+  --color-danger: oklch(64% 0.21 25);
+
+  /* Radius — soft, generous corners. */
+  --radius-control: 0.75rem;
+  --radius-card: 1.25rem;
+  --radius-sheet: 1.5rem;
+  --radius-pill: 999px;
+
+  /* Motion easing (mirrored in src/design/motion.ts). */
+  --ease-standard: cubic-bezier(0.32, 0.72, 0, 1);
+
+  /* Elevation. */
+  --shadow-card: 0 1px 2px oklch(0% 0 0 / 0.3), 0 8px 24px oklch(0% 0 0 / 0.25);
+}
+
+/* Light theme — dark is the default (html.dark set in index.html). */
+:root:not(.dark) {
+  --color-background: oklch(98.5% 0.002 264);
+  --color-surface: oklch(100% 0 0);
+  --color-surface-raised: oklch(99% 0.003 264);
+  --color-border: oklch(91% 0.004 264);
+  --color-border-strong: oklch(83% 0.006 264);
+  --color-foreground: oklch(21% 0.01 264);
+  --color-muted: oklch(45% 0.01 264);
+  --color-subtle: oklch(60% 0.01 264);
+  --shadow-card: 0 1px 2px oklch(0% 0 0 / 0.06), 0 8px 24px oklch(0% 0 0 / 0.08);
+}
+
+/*
+  Safe areas + viewport. Fallbacks use the CSS env() insets; the Telegram SDK
+  wrapper (src/telegram/sdk.ts) overrides these with Telegram-reported values
+  when the client provides them.
+*/
+:root {
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --tg-viewport-height: 100dvh;
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    margin: 0;
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    /* Telegram WebView hygiene. */
+    -webkit-tap-highlight-color: transparent;
+    overscroll-behavior: none;
+  }
+
+  /* Keep the layout calm: no accidental horizontal scroll at 320px. */
+  #root {
+    overflow-x: hidden;
+  }
+}
+
+@layer utilities {
+  /* Safe-area padding helpers. */
+  .pt-safe {
+    padding-top: var(--safe-top);
+  }
+  .pb-safe {
+    padding-bottom: var(--safe-bottom);
+  }
+  .px-safe {
+    padding-left: var(--safe-left);
+    padding-right: var(--safe-right);
+  }
+  .min-h-viewport {
+    min-height: var(--tg-viewport-height);
+  }
+  .h-viewport {
+    height: var(--tg-viewport-height);
+  }
+
+  /* Hide scrollbars while keeping scroll behavior (tab bars, chip rows). */
+  .no-scrollbar {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* Respect the platform reduced-motion setting. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

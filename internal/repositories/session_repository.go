@@ -2,10 +2,13 @@ package repositories
 
 import (
 	"context"
-	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
+
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/damirkabdulla/tomorrow-tracker/internal/models"
 )
@@ -22,45 +25,62 @@ type SessionRepository interface {
 	// minutes inside [from, to). Each session contributes at most 12 hours.
 	// Active sessions count up to `to` (the caller passes "now").
 	// Rows with zero minutes are filtered out. Ordering matches leaderboard
-	// rules: minutes DESC, then user.created_at ASC.
+	// rules: minutes DESC, then created_at ASC, then user id ASC.
 	WeeklyTotals(ctx context.Context, from, to time.Time) ([]models.WeeklyTotal, error)
+	// GetByID returns a single session by primary key.
+	GetByID(ctx context.Context, sessionID int64) (*models.Session, error)
+	// ListByUser returns a user's most recent sessions, newest first, bounded
+	// by limit — never the full history.
+	ListByUser(ctx context.Context, userID int64, limit int) ([]models.Session, error)
+	// TotalCompletedMinutes sums duration_minutes across a user's finished
+	// sessions.
+	TotalCompletedMinutes(ctx context.Context, userID int64) (int, error)
+	// ListByUserPaged returns a page of a user's sessions, newest first,
+	// bounded by limit and offset — never the full history.
+	ListByUserPaged(ctx context.Context, userID int64, limit, offset int) ([]models.Session, error)
+	// CountByUser returns the total number of sessions a user has — used for
+	// the pagination metadata of the user sessions listing.
+	CountByUser(ctx context.Context, userID int64) (int64, error)
+	// CompletedSessionCount returns the number of a user's finished
+	// (non-active) sessions.
+	CompletedSessionCount(ctx context.Context, userID int64) (int64, error)
 }
 
 // MaxSessionMinutes is the per-session anti-cheat cap. Anything longer is
 // counted as exactly 12 hours toward leaderboards.
 const MaxSessionMinutes = 12 * 60
 
-// isoTS serializes a time.Time as RFC3339Nano UTC. The modernc.org/sqlite
-// driver's default time.Time binding produces Go's String() format
-// ("2026-05-11 02:00:00 +0500 +05"), which SQLite's date functions
-// (julianday, strftime, etc.) cannot parse. Binding as an ISO-8601 string
-// instead keeps stored values portable and unlocks SQL date math.
-// This is also the format PostgreSQL accepts when we eventually migrate.
-func isoTS(t time.Time) string {
-	return t.UTC().Format(time.RFC3339Nano)
-}
+// MinStreakSessionMinutes is the minimum length a finished session must reach
+// to count toward a user's daily streak. It lives here, in the data layer,
+// because both the streak service and the admin streak-recomputation query
+// need a single shared source of truth.
+const MinStreakSessionMinutes = 30
+
+// sessionColumns is the canonical column list for a full session row. Keeping
+// it in one place ensures every SELECT and scanSession stay in lockstep.
+// anti_cheat_flags is cast to text so it scans through the shared helper.
+const sessionColumns = `id, user_id, started_at, ended_at, duration_minutes,
+        is_active, created_at, is_valid, anti_cheat_flags::text`
 
 type sessionRepo struct {
-	db *sql.DB
+	db *pgxpool.Pool
 }
 
-// NewSessionRepository wires a SessionRepository backed by the given DB.
-func NewSessionRepository(db *sql.DB) SessionRepository {
+// NewSessionRepository wires a SessionRepository backed by the given pool.
+func NewSessionRepository(db *pgxpool.Pool) SessionRepository {
 	return &sessionRepo{db: db}
 }
 
 func (r *sessionRepo) GetActive(ctx context.Context, userID int64) (*models.Session, error) {
 	const q = `
-        SELECT id, user_id, started_at, ended_at, duration_minutes, is_active, created_at
+        SELECT ` + sessionColumns + `
         FROM sessions
-        WHERE user_id = ? AND is_active = 1
+        WHERE user_id = $1 AND is_active = TRUE
         ORDER BY started_at DESC
         LIMIT 1`
-	row := r.db.QueryRowContext(ctx, q, userID)
-
-	s, err := scanSession(row)
+	s, err := scanSession(r.db.QueryRow(ctx, q, userID))
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
+		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrNotFound
 		}
 		return nil, fmt.Errorf("scan active session: %w", err)
@@ -69,39 +89,33 @@ func (r *sessionRepo) GetActive(ctx context.Context, userID int64) (*models.Sess
 }
 
 func (r *sessionRepo) Create(ctx context.Context, userID int64, startedAt time.Time) (*models.Session, error) {
-	const insert = `
+	const q = `
         INSERT INTO sessions (user_id, started_at, is_active)
-        VALUES (?, ?, 1)`
-	res, err := r.db.ExecContext(ctx, insert, userID, isoTS(startedAt))
-	if err != nil {
-		return nil, fmt.Errorf("insert session: %w", err)
-	}
-	id, err := res.LastInsertId()
-	if err != nil {
-		return nil, fmt.Errorf("session id: %w", err)
-	}
-	return &models.Session{
-		ID:        id,
+        VALUES ($1, $2, TRUE)
+        RETURNING id, created_at`
+	s := &models.Session{
 		UserID:    userID,
 		StartedAt: startedAt,
 		IsActive:  true,
-		CreatedAt: time.Now().UTC(),
-	}, nil
+	}
+	if err := r.db.QueryRow(ctx, q, userID, startedAt).Scan(&s.ID, &s.CreatedAt); err != nil {
+		return nil, fmt.Errorf("insert session: %w", err)
+	}
+	return s, nil
 }
 
 func (r *sessionRepo) Finish(ctx context.Context, sessionID int64, endedAt time.Time, durationMinutes int) error {
-	const update = `
+	const q = `
         UPDATE sessions
-        SET ended_at = ?, duration_minutes = ?, is_active = 0
-        WHERE id = ? AND is_active = 1`
-	res, err := r.db.ExecContext(ctx, update, isoTS(endedAt), durationMinutes, sessionID)
+        SET ended_at = $1, duration_minutes = $2, is_active = FALSE
+        WHERE id = $3 AND is_active = TRUE`
+	tag, err := r.db.Exec(ctx, q, endedAt, durationMinutes, sessionID)
 	if err != nil {
 		return fmt.Errorf("finish session: %w", err)
 	}
-	rows, _ := res.RowsAffected()
-	if rows == 0 {
-		// Session was already closed or never existed — services can decide
-		// how to surface this to the user.
+	if tag.RowsAffected() == 0 {
+		// Session was already closed or never existed — services decide how
+		// to surface this to the user.
 		return ErrNotFound
 	}
 	return nil
@@ -109,13 +123,13 @@ func (r *sessionRepo) Finish(ctx context.Context, sessionID int64, endedAt time.
 
 func (r *sessionRepo) ListOverlapping(ctx context.Context, userID int64, from, to time.Time) ([]models.Session, error) {
 	const q = `
-        SELECT id, user_id, started_at, ended_at, duration_minutes, is_active, created_at
+        SELECT ` + sessionColumns + `
         FROM sessions
-        WHERE user_id = ?
-          AND started_at < ?
-          AND (ended_at IS NULL OR ended_at > ?)
+        WHERE user_id = $1
+          AND started_at < $2
+          AND (ended_at IS NULL OR ended_at > $3)
         ORDER BY started_at ASC`
-	rows, err := r.db.QueryContext(ctx, q, userID, isoTS(to), isoTS(from))
+	rows, err := r.db.Query(ctx, q, userID, to, from)
 	if err != nil {
 		return nil, fmt.Errorf("list overlapping: %w", err)
 	}
@@ -138,47 +152,51 @@ func (r *sessionRepo) ListOverlapping(ctx context.Context, userID int64, from, t
 // WeeklyTotals computes per-user weekly minutes in a single aggregation.
 //
 // Per session, the contribution is:
-//   minutes = clamp(0, 720, (min(to, ended_at|to) - max(from, started_at)) * 1440)
 //
-// julianday() returns the date as a fractional day number; multiplying by 1440
-// converts to minutes. The MAX/MIN scalar forms clip the session window into
-// the requested [from, to) range, MAX(0, ...) discards negative durations
-// (invalid timestamps), and MIN(720, ...) enforces the 12h-per-session cap.
+//	minutes = clamp(0, 720, floor( seconds( min(to, ended_at|to)
+//	                                       - max(from, started_at) ) / 60 ))
+//
+// EXTRACT(EPOCH FROM interval) yields the interval length in seconds; dividing
+// by 60 gives minutes. GREATEST/LEAST clip the session window into [from, to),
+// GREATEST(0, ...) discards negative durations (invalid timestamps), and
+// LEAST(720, ...) enforces the 12h-per-session anti-cheat cap.
 //
 // Ordering: minutes DESC, then created_at ASC, then user id ASC — fully
 // deterministic so users do not see their rank flicker when totals are tied.
 //
-// Sessions are filtered to only those overlapping [from, to) so the index on
-// started_at is leveraged.
+// $1 = to (window end / "now"), $2 = from (window start). GROUP BY users.id is
+// valid because id is the primary key, so the other u.* columns are
+// functionally dependent and may be selected without aggregation.
 func (r *sessionRepo) WeeklyTotals(ctx context.Context, from, to time.Time) ([]models.WeeklyTotal, error) {
 	const q = `
-        SELECT
-            u.id,
-            u.first_name,
-            u.username,
-            u.created_at,
-            COALESCE(SUM(
-                MIN(720, MAX(0, CAST(
-                    (julianday(MIN(?, COALESCE(s.ended_at, ?)))
-                     - julianday(MAX(?, s.started_at))) * 1440
-                AS INTEGER)))
-            ), 0) AS minutes
-        FROM users u
-        JOIN sessions s ON s.user_id = u.id
-        WHERE s.started_at < ?
-          AND (s.ended_at IS NULL OR s.ended_at > ?)
-        GROUP BY u.id
-        HAVING minutes > 0
-        ORDER BY minutes DESC, u.created_at ASC, u.id ASC`
+        WITH totals AS (
+            SELECT
+                u.id         AS user_id,
+                u.first_name AS first_name,
+                u.username   AS username,
+                u.created_at AS created_at,
+                COALESCE(SUM(
+                    LEAST(720, GREATEST(0,
+                        FLOOR(
+                            EXTRACT(EPOCH FROM (
+                                LEAST($1::timestamptz, COALESCE(s.ended_at, $1::timestamptz))
+                                - GREATEST($2::timestamptz, s.started_at)
+                            )) / 60
+                        )::bigint
+                    ))
+                ), 0)::int AS minutes
+            FROM users u
+            JOIN sessions s ON s.user_id = u.id
+            WHERE s.started_at < $1::timestamptz
+              AND (s.ended_at IS NULL OR s.ended_at > $2::timestamptz)
+            GROUP BY u.id
+        )
+        SELECT user_id, first_name, username, created_at, minutes
+        FROM totals
+        WHERE minutes > 0
+        ORDER BY minutes DESC, created_at ASC, user_id ASC`
 
-	fromS := isoTS(from)
-	toS := isoTS(to)
-
-	rows, err := r.db.QueryContext(ctx, q,
-		toS, toS, // MIN(to, COALESCE(ended_at, to))
-		fromS,       // MAX(from, started_at)
-		toS, fromS,  // WHERE bounds
-	)
+	rows, err := r.db.Query(ctx, q, to, from)
 	if err != nil {
 		return nil, fmt.Errorf("weekly totals: %w", err)
 	}
@@ -198,21 +216,122 @@ func (r *sessionRepo) WeeklyTotals(ctx context.Context, from, to time.Time) ([]m
 	return out, nil
 }
 
-// scannable abstracts over *sql.Row and *sql.Rows so scanSession works for both.
+func (r *sessionRepo) GetByID(ctx context.Context, sessionID int64) (*models.Session, error) {
+	const q = `
+        SELECT ` + sessionColumns + `
+        FROM sessions
+        WHERE id = $1`
+	s, err := scanSession(r.db.QueryRow(ctx, q, sessionID))
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrNotFound
+		}
+		return nil, fmt.Errorf("scan session: %w", err)
+	}
+	return s, nil
+}
+
+func (r *sessionRepo) ListByUser(ctx context.Context, userID int64, limit int) ([]models.Session, error) {
+	const q = `
+        SELECT ` + sessionColumns + `
+        FROM sessions
+        WHERE user_id = $1
+        ORDER BY started_at DESC, id DESC
+        LIMIT $2`
+	rows, err := r.db.Query(ctx, q, userID, limit)
+	if err != nil {
+		return nil, fmt.Errorf("list by user: %w", err)
+	}
+	defer rows.Close()
+
+	var out []models.Session
+	for rows.Next() {
+		s, err := scanSession(rows)
+		if err != nil {
+			return nil, fmt.Errorf("scan session: %w", err)
+		}
+		out = append(out, *s)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("rows: %w", err)
+	}
+	return out, nil
+}
+
+func (r *sessionRepo) TotalCompletedMinutes(ctx context.Context, userID int64) (int, error) {
+	const q = `
+        SELECT COALESCE(SUM(duration_minutes), 0)
+        FROM sessions
+        WHERE user_id = $1 AND is_active = FALSE`
+	var total int
+	if err := r.db.QueryRow(ctx, q, userID).Scan(&total); err != nil {
+		return 0, fmt.Errorf("total completed minutes: %w", err)
+	}
+	return total, nil
+}
+
+func (r *sessionRepo) ListByUserPaged(ctx context.Context, userID int64, limit, offset int) ([]models.Session, error) {
+	const q = `
+        SELECT ` + sessionColumns + `
+        FROM sessions
+        WHERE user_id = $1
+        ORDER BY started_at DESC, id DESC
+        LIMIT $2 OFFSET $3`
+	rows, err := r.db.Query(ctx, q, userID, limit, offset)
+	if err != nil {
+		return nil, fmt.Errorf("list by user paged: %w", err)
+	}
+	defer rows.Close()
+
+	var out []models.Session
+	for rows.Next() {
+		s, err := scanSession(rows)
+		if err != nil {
+			return nil, fmt.Errorf("scan session: %w", err)
+		}
+		out = append(out, *s)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("rows: %w", err)
+	}
+	return out, nil
+}
+
+func (r *sessionRepo) CountByUser(ctx context.Context, userID int64) (int64, error) {
+	const q = `SELECT COUNT(*) FROM sessions WHERE user_id = $1`
+	var total int64
+	if err := r.db.QueryRow(ctx, q, userID).Scan(&total); err != nil {
+		return 0, fmt.Errorf("count by user: %w", err)
+	}
+	return total, nil
+}
+
+func (r *sessionRepo) CompletedSessionCount(ctx context.Context, userID int64) (int64, error) {
+	const q = `SELECT COUNT(*) FROM sessions WHERE user_id = $1 AND is_active = FALSE`
+	var total int64
+	if err := r.db.QueryRow(ctx, q, userID).Scan(&total); err != nil {
+		return 0, fmt.Errorf("completed session count: %w", err)
+	}
+	return total, nil
+}
+
+// scannable abstracts over pgx.Row and pgx.Rows so scan helpers work for both.
 type scannable interface {
 	Scan(dest ...any) error
 }
 
 func scanSession(s scannable) (*models.Session, error) {
 	out := &models.Session{}
-	var endedAt sql.NullTime
-	var isActiveInt int
-	if err := s.Scan(&out.ID, &out.UserID, &out.StartedAt, &endedAt, &out.DurationMinutes, &isActiveInt, &out.CreatedAt); err != nil {
+	var endedAt *time.Time
+	var flags string // anti_cheat_flags::text — NOT NULL in the schema
+	if err := s.Scan(&out.ID, &out.UserID, &out.StartedAt, &endedAt,
+		&out.DurationMinutes, &out.IsActive, &out.CreatedAt,
+		&out.IsValid, &flags); err != nil {
 		return nil, err
 	}
-	if endedAt.Valid {
-		out.EndedAt = endedAt.Time
+	if endedAt != nil {
+		out.EndedAt = *endedAt
 	}
-	out.IsActive = isActiveInt != 0
+	out.AntiCheatFlags = json.RawMessage(flags)
 	return out, nil
 }
