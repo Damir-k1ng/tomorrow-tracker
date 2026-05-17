@@ -273,13 +273,19 @@ func (s *Server) handleStartSession(w http.ResponseWriter, r *http.Request) {
 	session, err := s.userAPI.StartSession(r.Context(), user.ID)
 	if err != nil {
 		if errors.Is(err, services.ErrSessionAlreadyActive) {
+			// Expected, benign contention (double-tap / stale UI) — Warn, not
+			// Error. user_id only; no initData or secrets are ever logged.
+			s.log.Warn("session: duplicate start attempt", slog.Int64("user_id", user.ID))
 			WriteError(w, http.StatusConflict, "у тебя уже есть активная сессия")
 			return
 		}
-		s.log.Error("api: start session failed", slog.String("error", err.Error()))
+		s.log.Error("api: start session failed",
+			slog.Int64("user_id", user.ID), slog.String("error", err.Error()))
 		WriteError(w, http.StatusInternalServerError, "не удалось начать сессию")
 		return
 	}
+	s.log.Info("session: started",
+		slog.Int64("user_id", user.ID), slog.Int64("session_id", session.ID))
 	WriteSuccess(w, http.StatusCreated, newSessionResponse(*session))
 }
 
@@ -307,11 +313,19 @@ func (s *Server) handleFinishSession(w http.ResponseWriter, r *http.Request) {
 		case errors.Is(err, services.ErrSessionNotFound):
 			WriteError(w, http.StatusNotFound, "сессия не найдена")
 		case errors.Is(err, services.ErrSessionNotOwned):
+			// A user attempted to finish a session they do not own — log as a
+			// security-relevant event (Warn) with the ids involved.
+			s.log.Warn("session: unauthorized finish attempt",
+				slog.Int64("user_id", user.ID), slog.Int64("session_id", sessionID))
 			WriteError(w, http.StatusForbidden, "это не твоя сессия")
 		case errors.Is(err, services.ErrSessionAlreadyFinished):
+			s.log.Warn("session: finish of already-finished session",
+				slog.Int64("user_id", user.ID), slog.Int64("session_id", sessionID))
 			WriteError(w, http.StatusConflict, "сессия уже завершена")
 		default:
-			s.log.Error("api: finish session failed", slog.String("error", err.Error()))
+			s.log.Error("api: finish session failed",
+				slog.Int64("user_id", user.ID), slog.Int64("session_id", sessionID),
+				slog.String("error", err.Error()))
 			WriteError(w, http.StatusInternalServerError, "не удалось завершить сессию")
 		}
 		return
@@ -344,5 +358,9 @@ func (s *Server) handleFinishSession(w http.ResponseWriter, r *http.Request) {
 			NewRecord: result.Streak.NewRecord,
 		}
 	}
+	s.log.Info("session: finished",
+		slog.Int64("user_id", user.ID),
+		slog.Int64("session_id", sessionID),
+		slog.Int("duration_minutes", result.SessionMinutes))
 	WriteSuccess(w, http.StatusOK, resp)
 }

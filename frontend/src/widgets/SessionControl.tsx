@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { CheckCircle2, Flame, Play, Square } from 'lucide-react';
 import type { FinishSessionResult, StudySession } from '@/entities/session';
@@ -28,20 +28,35 @@ export function SessionControl({ activeSession }: SessionControlProps) {
   const start = useStartSessionMutation();
   const finish = useFinishSessionMutation();
 
+  // Synchronous in-flight lock. `mutation.isPending` only updates on the next
+  // render, so a rapid double-tap could fire two requests before the button
+  // re-renders disabled. This ref closes that window — at most one start/finish
+  // request is ever in flight.
+  const inFlight = useRef(false);
+
   const handleStart = useCallback(() => {
+    if (inFlight.current) return;
+    inFlight.current = true;
     // Clear any prior finish summary before opening a fresh session.
     finish.reset();
     start.mutate(undefined, {
       onSuccess: () => haptics.notify('success'),
       onError: () => haptics.notify('error'),
+      onSettled: () => {
+        inFlight.current = false;
+      },
     });
   }, [start, finish]);
 
   const handleFinish = useCallback(() => {
-    if (!activeSession) return;
+    if (inFlight.current || !activeSession) return;
+    inFlight.current = true;
     finish.mutate(activeSession.id, {
       onSuccess: () => haptics.notify('success'),
       onError: () => haptics.notify('error'),
+      onSettled: () => {
+        inFlight.current = false;
+      },
     });
   }, [finish, activeSession]);
 

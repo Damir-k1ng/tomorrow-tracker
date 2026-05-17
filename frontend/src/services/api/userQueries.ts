@@ -60,14 +60,18 @@ export function useLeaderboardQuery() {
 /**
  * POST /api/v1/user/sessions/start — open a study session.
  *
- * On success the profile query is invalidated, so the dashboard re-fetches
- * `/me` and renders the now-active session from authoritative backend state.
+ * The profile query is invalidated in `onSettled` — not just `onSuccess` — so
+ * the dashboard re-syncs to backend state on *every* outcome. This matters for
+ * the duplicate-start race: if start fails with 409 because a session is
+ * already active (started from the bot or another device while `/me` was
+ * stale), the refetch surfaces that session and the card recovers to the
+ * active state instead of being stuck on a stale "start" card.
  */
 export function useStartSessionMutation() {
   const queryClient = useQueryClient();
   return useMutation<StudySession, unknown, void>({
     mutationFn: () => userApi.startSession(),
-    onSuccess: () => {
+    onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: userQueryKeys.me });
     },
   });
