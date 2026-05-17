@@ -76,7 +76,7 @@ func main() {
 
 	h := handlers.New(tgAPI, userSvc, sessionSvc, leaderboardSvc, streakSvc, log)
 	router := bot.NewRouter(h)
-	tgBot := bot.New(tgAPI, router, log)
+	tgBot := bot.New(tgAPI, router, log, cfg.MiniAppURL)
 
 	// Anti-stub guard: in production the embedded SPA must be a real Vite
 	// build, not the committed placeholder that exists only so `go build`

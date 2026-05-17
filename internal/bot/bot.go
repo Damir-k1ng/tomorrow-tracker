@@ -1,9 +1,13 @@
 package bot
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
+	"net/http"
+	"time"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 
@@ -29,14 +33,17 @@ func Connect(token string, log *slog.Logger) (*tgbotapi.BotAPI, error) {
 
 // Bot owns the long-running update loop.
 type Bot struct {
-	api    *tgbotapi.BotAPI
-	router *Router
-	log    *slog.Logger
+	api        *tgbotapi.BotAPI
+	router     *Router
+	log        *slog.Logger
+	miniAppURL string // "" → no Mini App menu button
 }
 
-// New wires a Bot from an authenticated API client and a router.
-func New(api *tgbotapi.BotAPI, router *Router, log *slog.Logger) *Bot {
-	return &Bot{api: api, router: router, log: log}
+// New wires a Bot from an authenticated API client and a router. miniAppURL,
+// when non-empty, is published as the chat menu button so users can launch
+// the Mini App straight from the bot.
+func New(api *tgbotapi.BotAPI, router *Router, log *slog.Logger, miniAppURL string) *Bot {
+	return &Bot{api: api, router: router, log: log, miniAppURL: miniAppURL}
 }
 
 // Run blocks until ctx is cancelled, processing updates one at a time.
@@ -44,6 +51,7 @@ func New(api *tgbotapi.BotAPI, router *Router, log *slog.Logger) *Bot {
 // single bad update can never crash the loop.
 func (b *Bot) Run(ctx context.Context) {
 	b.registerCommands()
+	b.setMenuButton()
 
 	pipeline := middleware.Recover(b.log, middleware.Logger(b.log, b.router.Dispatch))
 
@@ -95,4 +103,43 @@ func (b *Bot) registerCommands() {
 		return
 	}
 	b.log.Info("bot commands registered", slog.Int("count", len(botCommands)))
+}
+
+// setMenuButton publishes the chat menu button (the control beside the message
+// input) as a Web App launcher for the Mini App. It is a raw Bot API call:
+// the pinned telegram-bot-api v5.5.1 predates Bot API 6.0 and has no Web App
+// types at all. No-op when no Mini App URL is configured; a failure is
+// non-fatal — the bot still runs, users just open the app another way.
+func (b *Bot) setMenuButton() {
+	if b.miniAppURL == "" {
+		b.log.Info("mini app menu button skipped: no MINI_APP_URL configured")
+		return
+	}
+
+	payload, err := json.Marshal(map[string]any{
+		"menu_button": map[string]any{
+			"type":    "web_app",
+			"text":    "Открыть приложение",
+			"web_app": map[string]any{"url": b.miniAppURL},
+		},
+	})
+	if err != nil {
+		b.log.Error("set menu button: marshal failed", slog.String("error", err.Error()))
+		return
+	}
+
+	endpoint := "https://api.telegram.org/bot" + b.api.Token + "/setChatMenuButton"
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Post(endpoint, "application/json", bytes.NewReader(payload))
+	if err != nil {
+		b.log.Error("set menu button: request failed", slog.String("error", err.Error()))
+		return
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		b.log.Error("set menu button: unexpected status", slog.Int("status", resp.StatusCode))
+		return
+	}
+	b.log.Info("mini app menu button set")
 }

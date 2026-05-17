@@ -23,6 +23,7 @@ type Config struct {
 	AdminTelegramID    int64  // auto-promoted to the admin role; 0 disables
 	CORSAllowedOrigins string // comma-separated allow-list; "*" permits any
 	Environment        string // deployment environment: "production" enables strict checks
+	MiniAppURL         string // public HTTPS URL of the Mini App; "" disables the bot menu button
 }
 
 // IsProduction reports whether the bot is running in a production deployment.
@@ -66,6 +67,16 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("invalid ADMIN_TELEGRAM_ID: %w", err)
 	}
 
+	// Mini App URL for the bot's chat menu button. Explicit MINI_APP_URL wins;
+	// otherwise fall back to Railway's injected public domain, so production
+	// works with zero extra configuration. Empty → the menu button is skipped.
+	miniAppURL := getEnv("MINI_APP_URL", "")
+	if miniAppURL == "" {
+		if domain := os.Getenv("RAILWAY_PUBLIC_DOMAIN"); domain != "" {
+			miniAppURL = "https://" + domain
+		}
+	}
+
 	return &Config{
 		TelegramToken:     token,
 		DatabaseURL:       databaseURL,
@@ -78,6 +89,7 @@ func Load() (*Config, error) {
 		CORSAllowedOrigins: getEnv("CORS_ALLOWED_ORIGINS", "*"),
 		// Railway production sets APP_ENV=production; local runs default to dev.
 		Environment: getEnv("APP_ENV", "development"),
+		MiniAppURL:  miniAppURL,
 	}, nil
 }
 

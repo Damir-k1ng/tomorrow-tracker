@@ -97,6 +97,7 @@ Copy `.env.example` to `.env` and fill in the token + database URL.
 | `PORT` | `8080` | HTTP port for the health + API endpoints (Railway sets this) |
 | `ADMIN_TELEGRAM_ID` | `0` | Telegram ID auto-promoted to the `admin` role; `0` (default) disables auto-promotion — set it explicitly to enable |
 | `CORS_ALLOWED_ORIGINS` | `*` | Comma-separated CORS allow-list for the future Mini App |
+| `MINI_APP_URL` | _(auto)_ | Public HTTPS URL of the Mini App for the bot's menu button. Defaults to `https://$RAILWAY_PUBLIC_DOMAIN`; set explicitly to override, leave empty to disable the button |
 
 ---
 
