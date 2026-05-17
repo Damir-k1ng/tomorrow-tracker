@@ -132,6 +132,7 @@ func (s *SessionService) FinishSession(ctx context.Context, userID, sessionID in
 	}
 
 	return &FinishResult{
+		SessionID:      sessionID,
 		SessionMinutes: duration,
 		EndedAt:        now,
 		Progress:       progress,
@@ -140,8 +141,10 @@ func (s *SessionService) FinishSession(ctx context.Context, userID, sessionID in
 
 // FinishResult is the data needed to render the "session ended" message.
 // EndedAt is exposed so the streak service can attribute the session to the
-// correct calendar day (in the configured timezone).
+// correct calendar day (in the configured timezone). SessionID identifies the
+// closed session so callers can log the full lifecycle.
 type FinishResult struct {
+	SessionID      int64
 	SessionMinutes int
 	EndedAt        time.Time
 	Progress       Progress
@@ -175,6 +178,7 @@ func (s *SessionService) Finish(ctx context.Context, userID int64) (*FinishResul
 	}
 
 	return &FinishResult{
+		SessionID:      active.ID,
 		SessionMinutes: duration,
 		EndedAt:        now,
 		Progress:       progress,

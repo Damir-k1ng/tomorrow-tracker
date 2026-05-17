@@ -22,12 +22,17 @@ func (h *Handlers) StartSession(ctx context.Context, msg *tgbotapi.Message) erro
 	session, err := h.sessions.Start(ctx, userID)
 	if err != nil {
 		if errors.Is(err, services.ErrSessionAlreadyActive) {
+			h.log.Warn("session: duplicate start attempt", slog.Int64("user_id", userID))
 			return h.reply(msg.Chat.ID,
 				"⚠️ У тебя уже есть активная сессия.\n\nЗаверши её, чтобы начать новую.",
 				nil)
 		}
 		return err
 	}
+	// Mirrors the Mini App API log so the lifecycle reads identically
+	// regardless of which surface opened the session.
+	h.log.Info("session: started",
+		slog.Int64("user_id", userID), slog.Int64("session_id", session.ID))
 
 	startedLocal := session.StartedAt.In(h.sessions.Location())
 	text := fmt.Sprintf(
@@ -58,6 +63,11 @@ func (h *Handlers) EndSession(ctx context.Context, msg *tgbotapi.Message) error 
 		}
 		return err
 	}
+
+	h.log.Info("session: finished",
+		slog.Int64("user_id", userID),
+		slog.Int64("session_id", result.SessionID),
+		slog.Int("duration_minutes", result.SessionMinutes))
 
 	streakSection := ""
 	streakUpd, streakErr := h.streaks.RecordCompletedSession(ctx, userID, result.SessionMinutes, result.EndedAt)

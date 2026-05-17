@@ -14,6 +14,11 @@ import (
 // It is split from Bot construction so callers can build handlers around the
 // API before wiring the final Bot.
 func Connect(token string, log *slog.Logger) (*tgbotapi.BotAPI, error) {
+	// Route the telegram-bot-api library's own logging through slog before any
+	// API call, so transient deploy-overlap "Conflict" lines arrive as
+	// structured warnings instead of raw red stderr.
+	installBotLogger(log)
+
 	api, err := tgbotapi.NewBotAPI(token)
 	if err != nil {
 		return nil, fmt.Errorf("connect telegram: %w", err)
