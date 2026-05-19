@@ -75,7 +75,7 @@ func newTestServer(adminID int64) http.Handler {
 	users := services.NewUserService(repo, adminID)
 	admin := services.NewAdminService(nil, nil, nil)
 	userAPI := newTestUserAPI(newFakeSessionRepo(), repo)
-	s := New("0", testBotToken, "*", users, userAPI, admin, nil, logger.New("error"))
+	s := New("0", testBotToken, "*", users, userAPI, admin, nil, "", nil, logger.New("error"))
 	return s.routes()
 }
 

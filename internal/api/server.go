@@ -72,13 +72,19 @@ type Server struct {
 	// spa serves the embedded Telegram Mini App SPA. It is the catch-all "/"
 	// handler; the /api/v1 routes sit on more specific patterns and always win.
 	spa http.Handler
+
+	// webhook, when non-nil, is the Telegram webhook handler mounted at
+	// webhookPath. Both are zero in long-polling mode.
+	webhook     http.Handler
+	webhookPath string
 }
 
 // New builds the API server. botToken is needed to verify Telegram initData;
 // corsOrigins is a comma-separated allow-list ("*" permits any origin). spa is
 // the embedded Mini App handler — when nil (e.g. in tests) a small stub stands
-// in so routing still works.
-func New(port, botToken, corsOrigins string, users *services.UserService, userAPI *services.UserAPIService, admin *services.AdminService, spa http.Handler, log *slog.Logger) *Server {
+// in so routing still works. webhook, when non-nil, is mounted at webhookPath
+// for Telegram webhook delivery; both are zero in long-polling mode.
+func New(port, botToken, corsOrigins string, users *services.UserService, userAPI *services.UserAPIService, admin *services.AdminService, spa http.Handler, webhookPath string, webhook http.Handler, log *slog.Logger) *Server {
 	if spa == nil {
 		spa = http.HandlerFunc(handleSPAUnavailable)
 	}
@@ -88,6 +94,8 @@ func New(port, botToken, corsOrigins string, users *services.UserService, userAP
 		admin:             admin,
 		log:               log,
 		botToken:          botToken,
+		webhook:           webhook,
+		webhookPath:       webhookPath,
 		corsOrigins:       parseOrigins(corsOrigins),
 		authLimiter:       newRateLimiter(authRatePerMin),
 		userIPLimiter:     newRateLimiter(userIPRatePerMin),
@@ -121,6 +129,13 @@ func (s *Server) routes() http.Handler {
 	// Any unmatched /api/ path returns a structured JSON 404 — the SPA fallback
 	// must NEVER serve HTML for an API route.
 	mux.HandleFunc("/api/", handleAPINotFound)
+
+	// Telegram webhook (webhook mode only). A fixed, non-secret path; the
+	// request is authenticated by the secret-token header inside the handler.
+	// recoverPanic keeps a malformed update from crashing the server.
+	if s.webhook != nil && s.webhookPath != "" {
+		mux.Handle(s.webhookPath, s.chain(s.webhook, s.recoverPanic))
+	}
 
 	// Mini App login — verifies initData itself, so no auth middleware here.
 	// Rate-limited per Telegram user (parsed from initData), not per IP, so a

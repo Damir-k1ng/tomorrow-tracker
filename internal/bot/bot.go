@@ -48,31 +48,60 @@ func Connect(token string, log *slog.Logger) (*tgbotapi.BotAPI, error) {
 	return api, nil
 }
 
-// Bot owns the long-running update loop.
+// Bot owns update delivery — the long-polling loop (Run) or the webhook
+// handler (WebhookHandler) — and the bounded worker pool that processes them.
 type Bot struct {
 	api        *tgbotapi.BotAPI
 	router     *Router
 	log        *slog.Logger
 	miniAppURL string // "" → no Mini App menu button
+
+	pipeline middleware.Handler // recovery + logging around router.Dispatch
+	sem      chan struct{}      // caps concurrently processed updates
+	wg       sync.WaitGroup     // tracks in-flight handlers for graceful shutdown
 }
 
 // New wires a Bot from an authenticated API client and a router. miniAppURL,
 // when non-empty, is published as the chat menu button so users can launch
 // the Mini App straight from the bot.
 func New(api *tgbotapi.BotAPI, router *Router, log *slog.Logger, miniAppURL string) *Bot {
-	return &Bot{api: api, router: router, log: log, miniAppURL: miniAppURL}
+	return &Bot{
+		api:        api,
+		router:     router,
+		log:        log,
+		miniAppURL: miniAppURL,
+		pipeline:   middleware.Recover(log, middleware.Logger(log, router.Dispatch)),
+		sem:        make(chan struct{}, maxConcurrentUpdates),
+	}
 }
 
-// Run blocks until ctx is cancelled, handling updates with a bounded worker
-// pool (maxConcurrentUpdates) so one slow update never blocks the others.
-// Each update is wrapped in recovery + structured logging middleware so a
-// single bad update can never crash the loop. On shutdown it stops receiving,
-// drains the buffered channel, and waits for in-flight handlers to finish.
+// dispatch processes one update through the pipeline on a worker goroutine. It
+// never blocks the caller: the worker-pool slot is acquired inside the
+// goroutine, so neither the poll loop nor the webhook handler stalls when the
+// pool is saturated. wg tracks the handler so shutdown can wait it out.
+func (b *Bot) dispatch(ctx context.Context, update tgbotapi.Update) {
+	b.wg.Add(1)
+	go func() {
+		defer b.wg.Done()
+		b.sem <- struct{}{}
+		defer func() { <-b.sem }()
+		_ = b.pipeline(ctx, update)
+	}()
+}
+
+// Run blocks until ctx is cancelled, long-polling Telegram for updates and
+// handling them with a bounded worker pool so one slow update never blocks the
+// others. On shutdown it stops receiving, drains the buffered channel, and
+// waits for in-flight handlers to finish.
 func (b *Bot) Run(ctx context.Context) {
 	b.registerCommands()
 	b.setMenuButton()
 
-	pipeline := middleware.Recover(b.log, middleware.Logger(b.log, b.router.Dispatch))
+	// getUpdates and a webhook are mutually exclusive — clear any webhook left
+	// over from a previous run so polling cannot fail with "webhook is active".
+	if _, err := b.api.Request(tgbotapi.DeleteWebhookConfig{}); err != nil {
+		b.log.Warn("failed to clear webhook before polling", slog.String("error", err.Error()))
+	}
 
 	u := tgbotapi.NewUpdate(0)
 	u.Timeout = 30
@@ -81,20 +110,6 @@ func (b *Bot) Run(ctx context.Context) {
 
 	b.log.Info("bot started, polling for updates",
 		slog.Int("max_concurrent", maxConcurrentUpdates))
-
-	// sem caps in-flight handlers; wg tracks them so shutdown can wait them out.
-	sem := make(chan struct{}, maxConcurrentUpdates)
-	var wg sync.WaitGroup
-
-	dispatch := func(update tgbotapi.Update) {
-		sem <- struct{}{}
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			defer func() { <-sem }()
-			_ = pipeline(ctx, update)
-		}()
-	}
 
 	for {
 		select {
@@ -105,14 +120,14 @@ func (b *Bot) Run(ctx context.Context) {
 			// Telegram client exits cleanly, then wait for in-flight handlers.
 			for range updates {
 			}
-			wg.Wait()
+			b.wg.Wait()
 			return
 		case update, ok := <-updates:
 			if !ok {
-				wg.Wait()
+				b.wg.Wait()
 				return
 			}
-			dispatch(update)
+			b.dispatch(ctx, update)
 		}
 	}
 }

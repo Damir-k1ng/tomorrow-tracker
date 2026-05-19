@@ -200,7 +200,7 @@ func newUserTestServer(sessionRepo *fakeSessionRepo) http.Handler {
 	userRepo := newAPIFakeRepo()
 	users := services.NewUserService(userRepo, 0) // 0 → no admin auto-promotion
 	admin := services.NewAdminService(nil, nil, nil)
-	s := New("0", testBotToken, "*", users, newTestUserAPI(sessionRepo, userRepo), admin, nil, logger.New("error"))
+	s := New("0", testBotToken, "*", users, newTestUserAPI(sessionRepo, userRepo), admin, nil, "", nil, logger.New("error"))
 	return s.routes()
 }
 

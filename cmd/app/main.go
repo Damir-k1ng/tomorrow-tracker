@@ -8,6 +8,7 @@ package main
 import (
 	"context"
 	"log/slog"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
@@ -96,14 +97,30 @@ func main() {
 		spaHandler = nil // api.New substitutes a safe stub
 	}
 
-	// HTTP server: Railway health endpoint, the /api/v1 surface, and the
-	// embedded Mini App. Started before the polling loop so the platform sees
-	// a healthy service immediately.
-	apiSrv := api.New(cfg.Port, cfg.TelegramToken, cfg.CORSAllowedOrigins, userSvc, userAPISvc, adminSvc, spaHandler, log)
+	// Update delivery mode is chosen by config: WEBHOOK_SECRET set → the bot
+	// receives updates via a Telegram webhook served on the HTTP server;
+	// unset → classic long-polling. The webhook handler must exist before the
+	// server is built so it can be mounted on the mux.
+	var webhookHandler http.Handler
+	if cfg.WebhookSecret != "" {
+		webhookHandler = tgBot.WebhookHandler(ctx, cfg.WebhookSecret)
+	}
+
+	// HTTP server: Railway health endpoint, the /api/v1 surface, the embedded
+	// Mini App, and (in webhook mode) the Telegram webhook. Started before the
+	// bot so the platform — and Telegram — see a healthy service immediately.
+	apiSrv := api.New(cfg.Port, cfg.TelegramToken, cfg.CORSAllowedOrigins, userSvc, userAPISvc, adminSvc, spaHandler, config.WebhookPath, webhookHandler, log)
 	apiSrv.Start()
 	defer apiSrv.Shutdown()
 
-	// 5. Start the bot. Run blocks until ctx is cancelled (SIGINT/SIGTERM).
-	tgBot.Run(ctx)
+	// 5. Start the bot. Both Run and RunWebhook block until ctx is cancelled.
+	if cfg.WebhookSecret != "" {
+		if err := tgBot.RunWebhook(ctx, cfg.WebhookURL, cfg.WebhookSecret); err != nil {
+			log.Error("FATAL: webhook registration failed", slog.String("error", err.Error()))
+			os.Exit(1)
+		}
+	} else {
+		tgBot.Run(ctx)
+	}
 	log.Info("tomorrow-tracker stopped cleanly")
 }

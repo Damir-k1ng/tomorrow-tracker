@@ -6,10 +6,16 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/joho/godotenv"
 )
+
+// WebhookPath is the fixed URL path the Telegram webhook is served on. The
+// path is NOT secret — authentication is the secret-token header — so it is
+// safe for it to appear in logs and routing tables.
+const WebhookPath = "/telegram/webhook"
 
 // Config holds every runtime parameter the bot needs.
 // Defaults are applied for everything except the bot token and database URL.
@@ -24,6 +30,8 @@ type Config struct {
 	CORSAllowedOrigins string // comma-separated allow-list; "*" permits any
 	Environment        string // deployment environment: "production" enables strict checks
 	MiniAppURL         string // public HTTPS URL of the Mini App; "" disables the bot menu button
+	WebhookSecret      string // Telegram webhook secret token; "" → long-polling mode
+	WebhookURL         string // full public URL Telegram posts updates to (webhook mode only)
 }
 
 // IsProduction reports whether the bot is running in a production deployment.
@@ -77,6 +85,21 @@ func Load() (*Config, error) {
 		}
 	}
 
+	// Webhook mode is opt-in: setting WEBHOOK_SECRET switches the bot from
+	// long-polling to a Telegram webhook served on the HTTP server. Empty →
+	// long-polling, the default.
+	webhookSecret := getEnv("WEBHOOK_SECRET", "")
+	var webhookURL string
+	if webhookSecret != "" {
+		if !isValidWebhookSecret(webhookSecret) {
+			return nil, errors.New("WEBHOOK_SECRET must be 1-256 chars of A-Z, a-z, 0-9, _ or -")
+		}
+		if miniAppURL == "" {
+			return nil, errors.New("WEBHOOK_SECRET is set but no public URL is available (set MINI_APP_URL or deploy on Railway)")
+		}
+		webhookURL = strings.TrimRight(miniAppURL, "/") + WebhookPath
+	}
+
 	return &Config{
 		TelegramToken:     token,
 		DatabaseURL:       databaseURL,
@@ -88,9 +111,30 @@ func Load() (*Config, error) {
 		AdminTelegramID:    adminID,
 		CORSAllowedOrigins: getEnv("CORS_ALLOWED_ORIGINS", "*"),
 		// Railway production sets APP_ENV=production; local runs default to dev.
-		Environment: getEnv("APP_ENV", "development"),
-		MiniAppURL:  miniAppURL,
+		Environment:   getEnv("APP_ENV", "development"),
+		MiniAppURL:    miniAppURL,
+		WebhookSecret: webhookSecret,
+		WebhookURL:    webhookURL,
 	}, nil
+}
+
+// isValidWebhookSecret reports whether s satisfies Telegram's secret_token
+// rules: 1-256 characters, each one of A-Z, a-z, 0-9, '_' or '-'.
+func isValidWebhookSecret(s string) bool {
+	if len(s) < 1 || len(s) > 256 {
+		return false
+	}
+	for _, c := range s {
+		switch {
+		case c >= 'A' && c <= 'Z',
+			c >= 'a' && c <= 'z',
+			c >= '0' && c <= '9',
+			c == '_', c == '-':
+		default:
+			return false
+		}
+	}
+	return true
 }
 
 func getEnv(key, fallback string) string {
