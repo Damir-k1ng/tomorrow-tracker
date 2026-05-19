@@ -108,6 +108,10 @@ func (s *Server) requireTelegramAuth(next http.Handler) http.Handler {
 			WriteError(w, http.StatusInternalServerError, "не удалось определить пользователя")
 			return
 		}
+		// Surface the resolved user to the outer access log.
+		if ri := reqInfoFromContext(r.Context()); ri != nil {
+			ri.userID = user.ID
+		}
 		ctx := context.WithValue(r.Context(), userContextKey, user)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})

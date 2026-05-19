@@ -10,11 +10,28 @@ import (
 	"github.com/damirkabdulla/tomorrow-tracker/internal/services"
 )
 
-// Per-group rate limits (requests per minute, per client IP). Auth and admin
-// surfaces are the most sensitive, so they are the most restricted.
+// Per-group rate limits, in requests per minute. The keying differs per group
+// and is the important detail — see each constant.
 const (
-	authRatePerMin  = 15
-	userRatePerMin  = 60
+	// authRatePerMin caps the Mini App login endpoint per Telegram user
+	// (parsed from initData), NOT per IP. A whole class launching the app at
+	// once from one campus Wi-Fi must not drain a single shared bucket.
+	authRatePerMin = 20
+
+	// userRatePerMin is the fair per-user budget for the user API, enforced
+	// AFTER authentication keyed by user ID. Identity keying is mandatory
+	// here: students of one school share a campus Wi-Fi egress IP, so an
+	// IP-keyed limit would make 40+ users contend for one bucket.
+	userRatePerMin = 120
+
+	// userIPRatePerMin is a coarse anti-flood ceiling applied per client IP
+	// BEFORE authentication. It is deliberately high — a whole school behind
+	// one NAT must never hit it; its only job is to blunt unauthenticated
+	// request floods. Fair per-user sharing is userLimiter's responsibility.
+	userIPRatePerMin = 1200
+
+	// adminRatePerMin caps the admin API per client IP. Admins are few, so
+	// IP keying is acceptable here (unlike the user surface).
 	adminRatePerMin = 30
 )
 
@@ -45,10 +62,11 @@ type Server struct {
 	botToken    string
 	corsOrigins []string
 
-	authLimiter       *rateLimiter
-	userLimiter       *rateLimiter
-	adminLimiter      *rateLimiter
-	correctionLimiter *rateLimiter
+	authLimiter       *rateLimiter // per Telegram user, on /auth/verify
+	userIPLimiter     *rateLimiter // coarse per-IP anti-flood, pre-auth
+	userLimiter       *rateLimiter // fair per-user budget, post-auth
+	adminLimiter      *rateLimiter // per-IP, admin group
+	correctionLimiter *rateLimiter // per-admin, correction endpoint
 	stopJanitor       chan struct{}
 
 	// spa serves the embedded Telegram Mini App SPA. It is the catch-all "/"
@@ -72,6 +90,7 @@ func New(port, botToken, corsOrigins string, users *services.UserService, userAP
 		botToken:          botToken,
 		corsOrigins:       parseOrigins(corsOrigins),
 		authLimiter:       newRateLimiter(authRatePerMin),
+		userIPLimiter:     newRateLimiter(userIPRatePerMin),
 		userLimiter:       newRateLimiter(userRatePerMin),
 		adminLimiter:      newRateLimiter(adminRatePerMin),
 		correctionLimiter: newRateLimiter(correctionRatePerMin),
@@ -104,24 +123,28 @@ func (s *Server) routes() http.Handler {
 	mux.HandleFunc("/api/", handleAPINotFound)
 
 	// Mini App login — verifies initData itself, so no auth middleware here.
+	// Rate-limited per Telegram user (parsed from initData), not per IP, so a
+	// whole class launching the app from one Wi-Fi is not throttled as one.
 	mux.Handle("/api/v1/auth/verify", s.chain(
 		http.HandlerFunc(s.handleAuthVerify),
-		s.recoverPanic, s.cors, s.rateLimit(s.authLimiter),
+		s.accessLog, s.recoverPanic, s.cors, s.rateLimitByInitDataUser(s.authLimiter),
 	))
 
 	// User group: any authenticated Telegram user. Every request is bounded by
-	// a timeout so a slow query cannot hang the Telegram WebView.
+	// a timeout so a slow query cannot hang the Telegram WebView. Rate limiting
+	// is two-layered: a coarse per-IP anti-flood BEFORE auth, then the real
+	// fair budget keyed per-user AFTER auth — see the limiter constants.
 	mux.Handle("/api/v1/user/", s.chain(
 		s.userRoutes(),
-		s.recoverPanic, s.cors, s.timeout(userRequestTimeout),
-		s.rateLimit(s.userLimiter), s.requireTelegramAuth,
+		s.accessLog, s.recoverPanic, s.cors, s.timeout(userRequestTimeout),
+		s.rateLimit(s.userIPLimiter), s.requireTelegramAuth, s.rateLimitByUser(s.userLimiter),
 	))
 
 	// Admin group: authenticated AND role == admin. Every request is also
 	// bounded by a timeout so slow queries / exports cannot hang.
 	mux.Handle("/api/v1/admin/", s.chain(
 		s.adminRoutes(),
-		s.recoverPanic, s.cors, s.timeout(adminRequestTimeout),
+		s.accessLog, s.recoverPanic, s.cors, s.timeout(adminRequestTimeout),
 		s.rateLimit(s.adminLimiter), s.requireTelegramAuth, s.requireAdmin,
 	))
 
@@ -197,7 +220,7 @@ func (s *Server) runJanitor() {
 		case <-s.stopJanitor:
 			return
 		case <-t.C:
-			for _, rl := range []*rateLimiter{s.authLimiter, s.userLimiter, s.adminLimiter, s.correctionLimiter} {
+			for _, rl := range []*rateLimiter{s.authLimiter, s.userIPLimiter, s.userLimiter, s.adminLimiter, s.correctionLimiter} {
 				rl.sweep(maxIdle)
 			}
 		}

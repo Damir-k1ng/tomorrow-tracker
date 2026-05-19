@@ -144,6 +144,28 @@ func initDataKeys(rawInitData string) string {
 	return strings.Join(keys, ",")
 }
 
+// initDataUserID extracts the Telegram user ID from a raw initData payload
+// WITHOUT verifying its signature. It is used purely as a rate-limit key, so a
+// forged value is harmless — it merely shares a bucket with other unverified
+// payloads. Returns 0 when no usable id is present.
+func initDataUserID(rawInitData string) int64 {
+	values, err := url.ParseQuery(rawInitData)
+	if err != nil {
+		return 0
+	}
+	userJSON := values.Get("user")
+	if userJSON == "" {
+		return 0
+	}
+	var u struct {
+		ID int64 `json:"id"`
+	}
+	if err := json.Unmarshal([]byte(userJSON), &u); err != nil {
+		return 0
+	}
+	return u.ID
+}
+
 // buildDataCheckString assembles the canonical string Telegram signs: every
 // received field EXCEPT `hash`, sorted by key, "key=value" per line.
 //

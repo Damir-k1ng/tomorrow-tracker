@@ -106,6 +106,60 @@ func (s *Server) rateLimitByAdmin(rl *rateLimiter) func(http.Handler) http.Handl
 	}
 }
 
+// rateLimitByUser returns a middleware that enforces rl keyed by the
+// authenticated user's ID rather than client IP. It MUST run AFTER
+// requireTelegramAuth, which places the resolved user in the context.
+//
+// Keying by identity is essential for this product, not a refinement: every
+// student of one school shares a single campus / dorm Wi-Fi egress IP, so an
+// IP-keyed limit forces 40+ distinct users to contend for ONE bucket — which
+// is exactly what made the Mini App stall under load. A per-user key gives
+// each caller their own fair budget regardless of shared NAT.
+func (s *Server) rateLimitByUser(rl *rateLimiter) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			key := "anon"
+			if u := userFromContext(r.Context()); u != nil {
+				key = "user:" + strconv.FormatInt(u.ID, 10)
+			}
+			if !rl.allow(key) {
+				WriteError(w, http.StatusTooManyRequests, "слишком много запросов, попробуй позже")
+				return
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
+// rateLimitByInitDataUser returns a middleware that enforces rl keyed by the
+// Telegram user ID embedded in the request's initData. It exists for the
+// pre-auth login endpoint, where no resolved user is in the context yet but a
+// per-identity key is still required — otherwise a whole class launching the
+// Mini App from one Wi-Fi IP exhausts a single shared bucket and most students
+// cannot even log in.
+//
+// The ID is read WITHOUT verifying the initData signature: the key is not a
+// trust boundary, so a forged `user` field merely shares a bucket with other
+// forged payloads (which fail verification in the handler anyway). Requests
+// with no usable initData fall back to a client-IP key.
+func (s *Server) rateLimitByInitDataUser(rl *rateLimiter) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			key := "ip:" + clientIP(r)
+			if raw, ok := extractInitData(r); ok {
+				if id := initDataUserID(raw); id != 0 {
+					key = "tg:" + strconv.FormatInt(id, 10)
+				}
+			}
+			if !rl.allow(key) {
+				WriteError(w, http.StatusTooManyRequests, "слишком много запросов, попробуй позже")
+				return
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
 // clientIP extracts the caller's IP for rate-limiting.
 //
 // SECURITY: X-Forwarded-For is partly client-controlled. A client may PREPEND
