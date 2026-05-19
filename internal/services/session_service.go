@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"time"
 
+	"golang.org/x/sync/errgroup"
+
 	"github.com/damirkabdulla/tomorrow-tracker/internal/models"
 	"github.com/damirkabdulla/tomorrow-tracker/internal/repositories"
 	"github.com/damirkabdulla/tomorrow-tracker/internal/utils"
@@ -197,12 +199,37 @@ func (s *SessionService) Progress(ctx context.Context, userID int64) (Progress, 
 	weekStart := utils.StartOfWeek(now)
 	weekEnd := weekStart.AddDate(0, 0, 7)
 
-	today, err := s.sumMinutes(ctx, userID, dayStart, dayEnd, now)
-	if err != nil {
-		return Progress{}, err
-	}
-	week, err := s.sumMinutes(ctx, userID, weekStart, weekEnd, now)
-	if err != nil {
+	// today's total, this week's total and the active-session lookup are three
+	// independent reads — run them concurrently so a /user/me request pays one
+	// round-trip of DB latency instead of three in series.
+	var (
+		today, week int
+		hasActive   bool
+		activeStart time.Time
+	)
+	g, gctx := errgroup.WithContext(ctx)
+	g.Go(func() (err error) {
+		today, err = s.sumMinutes(gctx, userID, dayStart, dayEnd, now)
+		return err
+	})
+	g.Go(func() (err error) {
+		week, err = s.sumMinutes(gctx, userID, weekStart, weekEnd, now)
+		return err
+	})
+	g.Go(func() error {
+		active, err := s.repo.GetActive(gctx, userID)
+		switch {
+		case err == nil:
+			hasActive = true
+			activeStart = active.StartedAt.In(s.location)
+		case errors.Is(err, repositories.ErrNotFound):
+			// no active session — hasActive stays false
+		default:
+			return fmt.Errorf("get active: %w", err)
+		}
+		return nil
+	})
+	if err := g.Wait(); err != nil {
 		return Progress{}, err
 	}
 
@@ -212,24 +239,13 @@ func (s *SessionService) Progress(ctx context.Context, userID int64) (Progress, 
 		remaining = 0
 	}
 
-	out := Progress{
+	return Progress{
 		TodayMinutes:     today,
 		WeekMinutes:      week,
 		RemainingMinutes: remaining,
-	}
-
-	active, err := s.repo.GetActive(ctx, userID)
-	switch {
-	case err == nil:
-		out.HasActiveSession = true
-		out.ActiveStartedAt = active.StartedAt.In(s.location)
-	case errors.Is(err, repositories.ErrNotFound):
-		// no-op: HasActiveSession stays false
-	default:
-		return Progress{}, fmt.Errorf("get active: %w", err)
-	}
-
-	return out, nil
+		HasActiveSession: hasActive,
+		ActiveStartedAt:  activeStart,
+	}, nil
 }
 
 // sumMinutes asks the repo for sessions overlapping [from, to) and computes

@@ -7,12 +7,20 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"sync"
 	"time"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 
 	"github.com/damirkabdulla/tomorrow-tracker/internal/middleware"
 )
+
+// maxConcurrentUpdates bounds how many Telegram updates are handled at once.
+// The loop used to process updates strictly one at a time, so a single slow
+// handler — a stalled Telegram send, a slow query — blocked every other user
+// queued behind it. A small worker pool removes that head-of-line blocking
+// while still capping load on the shared database connection pool.
+const maxConcurrentUpdates = 16
 
 // Connect authenticates with Telegram and returns the underlying API client.
 // It is split from Bot construction so callers can build handlers around the
@@ -55,9 +63,11 @@ func New(api *tgbotapi.BotAPI, router *Router, log *slog.Logger, miniAppURL stri
 	return &Bot{api: api, router: router, log: log, miniAppURL: miniAppURL}
 }
 
-// Run blocks until ctx is cancelled, processing updates one at a time.
+// Run blocks until ctx is cancelled, handling updates with a bounded worker
+// pool (maxConcurrentUpdates) so one slow update never blocks the others.
 // Each update is wrapped in recovery + structured logging middleware so a
-// single bad update can never crash the loop.
+// single bad update can never crash the loop. On shutdown it stops receiving,
+// drains the buffered channel, and waits for in-flight handlers to finish.
 func (b *Bot) Run(ctx context.Context) {
 	b.registerCommands()
 	b.setMenuButton()
@@ -69,7 +79,22 @@ func (b *Bot) Run(ctx context.Context) {
 	u.AllowedUpdates = []string{"message"}
 	updates := b.api.GetUpdatesChan(u)
 
-	b.log.Info("bot started, polling for updates")
+	b.log.Info("bot started, polling for updates",
+		slog.Int("max_concurrent", maxConcurrentUpdates))
+
+	// sem caps in-flight handlers; wg tracks them so shutdown can wait them out.
+	sem := make(chan struct{}, maxConcurrentUpdates)
+	var wg sync.WaitGroup
+
+	dispatch := func(update tgbotapi.Update) {
+		sem <- struct{}{}
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			defer func() { <-sem }()
+			_ = pipeline(ctx, update)
+		}()
+	}
 
 	for {
 		select {
@@ -77,15 +102,17 @@ func (b *Bot) Run(ctx context.Context) {
 			b.log.Info("shutdown signal received, stopping update loop")
 			b.api.StopReceivingUpdates()
 			// Drain remaining buffered updates so the goroutine inside the
-			// Telegram client exits cleanly.
+			// Telegram client exits cleanly, then wait for in-flight handlers.
 			for range updates {
 			}
+			wg.Wait()
 			return
 		case update, ok := <-updates:
 			if !ok {
+				wg.Wait()
 				return
 			}
-			_ = pipeline(ctx, update)
+			dispatch(update)
 		}
 	}
 }

@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 
+	"golang.org/x/sync/errgroup"
+
 	"github.com/damirkabdulla/tomorrow-tracker/internal/models"
 	"github.com/damirkabdulla/tomorrow-tracker/internal/repositories"
 )
@@ -72,25 +74,50 @@ func NewUserAPIService(
 // Profile composes the caller's overview. user is the already-authenticated
 // caller resolved by the API middleware, so no extra identity lookup is needed.
 func (s *UserAPIService) Profile(ctx context.Context, user *models.User) (*UserProfile, error) {
-	totalMinutes, err := s.sessions.TotalCompletedMinutes(ctx, user.ID)
-	if err != nil {
-		return nil, fmt.Errorf("total minutes: %w", err)
-	}
-	totalSessions, err := s.sessions.CompletedSessionCount(ctx, user.ID)
-	if err != nil {
-		return nil, fmt.Errorf("total sessions: %w", err)
-	}
-
-	var active *models.Session
-	if a, err := s.sessions.GetActive(ctx, user.ID); err == nil {
-		active = a
-	} else if !errors.Is(err, repositories.ErrNotFound) {
-		return nil, fmt.Errorf("active session: %w", err)
-	}
-
-	progress, err := s.sessionSvc.Progress(ctx, user.ID)
-	if err != nil {
-		return nil, fmt.Errorf("progress: %w", err)
+	// The four reads behind /user/me are independent — fan them out so the
+	// request pays the latency of the slowest one, not the sum of all four.
+	var (
+		totalMinutes  int
+		totalSessions int64
+		active        *models.Session
+		progress      Progress
+	)
+	g, gctx := errgroup.WithContext(ctx)
+	g.Go(func() (err error) {
+		totalMinutes, err = s.sessions.TotalCompletedMinutes(gctx, user.ID)
+		if err != nil {
+			return fmt.Errorf("total minutes: %w", err)
+		}
+		return nil
+	})
+	g.Go(func() (err error) {
+		totalSessions, err = s.sessions.CompletedSessionCount(gctx, user.ID)
+		if err != nil {
+			return fmt.Errorf("total sessions: %w", err)
+		}
+		return nil
+	})
+	g.Go(func() error {
+		a, err := s.sessions.GetActive(gctx, user.ID)
+		switch {
+		case err == nil:
+			active = a
+		case errors.Is(err, repositories.ErrNotFound):
+			// no active session — active stays nil
+		default:
+			return fmt.Errorf("active session: %w", err)
+		}
+		return nil
+	})
+	g.Go(func() (err error) {
+		progress, err = s.sessionSvc.Progress(gctx, user.ID)
+		if err != nil {
+			return fmt.Errorf("progress: %w", err)
+		}
+		return nil
+	})
+	if err := g.Wait(); err != nil {
+		return nil, err
 	}
 
 	return &UserProfile{

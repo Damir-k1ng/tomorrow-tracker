@@ -24,11 +24,13 @@ func New(ctx context.Context, databaseURL string) (*pgxpool.Pool, error) {
 		return nil, fmt.Errorf("parse DATABASE_URL: %w", err)
 	}
 
-	// Conservative pool sizing — a polling Telegram bot handles one update at
-	// a time, so a small pool is plenty and keeps us well under Railway's
-	// PostgreSQL connection limits.
-	cfg.MaxConns = 10
-	cfg.MinConns = 1
+	// Pool sizing for a concurrent workload. The old "one update at a time"
+	// assumption no longer holds: the bot now handles updates with a bounded
+	// worker pool (maxConcurrentUpdates) and the HTTP API serves requests in
+	// parallel. 25 covers the bot's 16-worker ceiling plus concurrent API
+	// requests while staying well under managed-PostgreSQL connection limits.
+	cfg.MaxConns = 25
+	cfg.MinConns = 2
 	cfg.MaxConnLifetime = time.Hour
 	cfg.MaxConnIdleTime = 30 * time.Minute
 
