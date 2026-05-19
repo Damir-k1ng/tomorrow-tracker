@@ -27,6 +27,15 @@ func Connect(token string, log *slog.Logger) (*tgbotapi.BotAPI, error) {
 	if err != nil {
 		return nil, fmt.Errorf("connect telegram: %w", err)
 	}
+
+	// Bound every Bot API call. The library's default client has NO timeout,
+	// so a stalled connection to api.telegram.org can block the
+	// single-threaded update loop indefinitely — production logs show sends
+	// hanging 22s+ and TLS handshakes timing out. 50s sits safely above the
+	// 30s getUpdates long-poll while turning an infinite hang into a fast,
+	// retryable error.
+	api.Client = &http.Client{Timeout: 50 * time.Second}
+
 	log.Info("telegram authorized", slog.String("username", api.Self.UserName))
 	return api, nil
 }
