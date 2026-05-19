@@ -58,6 +58,7 @@ type Server struct {
 	users       *services.UserService
 	userAPI     *services.UserAPIService
 	admin       *services.AdminService
+	broadcast   *services.BroadcastService
 	log         *slog.Logger
 	botToken    string
 	corsOrigins []string
@@ -84,7 +85,7 @@ type Server struct {
 // the embedded Mini App handler — when nil (e.g. in tests) a small stub stands
 // in so routing still works. webhook, when non-nil, is mounted at webhookPath
 // for Telegram webhook delivery; both are zero in long-polling mode.
-func New(port, botToken, corsOrigins string, users *services.UserService, userAPI *services.UserAPIService, admin *services.AdminService, spa http.Handler, webhookPath string, webhook http.Handler, log *slog.Logger) *Server {
+func New(port, botToken, corsOrigins string, users *services.UserService, userAPI *services.UserAPIService, admin *services.AdminService, broadcast *services.BroadcastService, spa http.Handler, webhookPath string, webhook http.Handler, log *slog.Logger) *Server {
 	if spa == nil {
 		spa = http.HandlerFunc(handleSPAUnavailable)
 	}
@@ -92,6 +93,7 @@ func New(port, botToken, corsOrigins string, users *services.UserService, userAP
 		users:             users,
 		userAPI:           userAPI,
 		admin:             admin,
+		broadcast:         broadcast,
 		log:               log,
 		botToken:          botToken,
 		webhook:           webhook,
@@ -204,6 +206,10 @@ func (s *Server) adminRoutes() http.Handler {
 	m.HandleFunc("GET /api/v1/admin/export/users", s.handleAdminExportUsers)
 	m.HandleFunc("GET /api/v1/admin/export/sessions", s.handleAdminExportSessions)
 	m.HandleFunc("GET /api/v1/admin/audit-logs", s.handleAdminListAuditLogs)
+	// Broadcasts: start a fan-out, list history, poll one for live progress.
+	m.HandleFunc("POST /api/v1/admin/broadcast", s.handleAdminStartBroadcast)
+	m.HandleFunc("GET /api/v1/admin/broadcasts", s.handleAdminListBroadcasts)
+	m.HandleFunc("GET /api/v1/admin/broadcasts/{id}", s.handleAdminGetBroadcast)
 	// Structured 404 for any other /api/v1/admin/* path.
 	m.HandleFunc("/api/v1/admin/", handleNotFound)
 	return m

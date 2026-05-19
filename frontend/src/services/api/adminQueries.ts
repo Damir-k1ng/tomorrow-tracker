@@ -8,7 +8,7 @@ import type {
   SessionCorrectionResult,
   SessionPatchInput,
 } from '@/entities/admin/types';
-import { adminApi, type AdminUserSort } from './adminApi';
+import { adminApi, type AdminUserSort, type Broadcast } from './adminApi';
 
 /**
  * React Query hooks for the admin-facing server state.
@@ -37,6 +37,7 @@ export const adminQueryKeys = {
   user: (id: number) => ['admin', 'user', id] as const,
   audit: (page: number, action: string) => ['admin', 'audit', page, action] as const,
   sessions: (filter: AdminSessionFilter) => ['admin', 'sessions', filter] as const,
+  broadcasts: ['admin', 'broadcasts'] as const,
 };
 
 /** GET /api/v1/admin/stats — operational counters for the admin dashboard. */
@@ -96,6 +97,34 @@ export function useCorrectSessionMutation() {
     mutationFn: ({ id, patch }) => adminApi.correctSession(id, patch),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: adminQueryKeys.root });
+    },
+  });
+}
+
+/**
+ * GET /api/v1/admin/broadcasts — broadcast history. While any broadcast is
+ * still running the query re-fetches every 2s, so the page shows live
+ * "sent N/total" progress without any extra wiring.
+ */
+export function useBroadcastsQuery() {
+  return useQuery({
+    queryKey: adminQueryKeys.broadcasts,
+    queryFn: ({ signal }) => adminApi.listBroadcasts(signal),
+    refetchInterval: (query) =>
+      (query.state.data ?? []).some((b: Broadcast) => b.status === 'running') ? 2000 : false,
+  });
+}
+
+/**
+ * POST /api/v1/admin/broadcast — start a fan-out. On success the broadcast
+ * list is invalidated so the new running broadcast appears immediately.
+ */
+export function useStartBroadcastMutation() {
+  const queryClient = useQueryClient();
+  return useMutation<Broadcast, unknown, string>({
+    mutationFn: (text) => adminApi.startBroadcast(text),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: adminQueryKeys.broadcasts });
     },
   });
 }

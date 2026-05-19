@@ -1,5 +1,13 @@
 import { Outlet } from 'react-router-dom';
-import { Download, LayoutDashboard, ScrollText, ShieldAlert, Timer, Users } from 'lucide-react';
+import {
+  Download,
+  LayoutDashboard,
+  Megaphone,
+  ScrollText,
+  ShieldAlert,
+  Timer,
+  Users,
+} from 'lucide-react';
 import { adminPaths } from '@/routes/paths';
 import { OfflineNotice } from './OfflineNotice';
 import { TabBar, type TabItem } from './TabBar';
@@ -15,6 +23,7 @@ const adminTabs: TabItem[] = [
   { to: adminPaths.audit, label: 'Аудит', icon: ScrollText },
   { to: adminPaths.exports, label: 'Экспорт', icon: Download },
   { to: adminPaths.moderation, label: 'Модерация', icon: ShieldAlert },
+  { to: adminPaths.broadcast, label: 'Рассылка', icon: Megaphone },
 ];
 
 export function AdminLayout() {

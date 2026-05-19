@@ -32,6 +32,10 @@ export const adminRouter = createBrowserRouter([
         path: adminPaths.moderation,
         element: lazyPage(() => import('@/pages/admin/AdminModerationPage')),
       },
+      {
+        path: adminPaths.broadcast,
+        element: lazyPage(() => import('@/pages/admin/AdminBroadcastPage')),
+      },
       // The app launches at "/" — send admins to their dashboard. Any unknown
       // path resolves there too.
       { path: '*', element: <Navigate to={adminPaths.dashboard} replace /> },

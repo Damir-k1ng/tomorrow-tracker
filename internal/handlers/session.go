@@ -97,10 +97,10 @@ func (h *Handlers) EndSession(ctx context.Context, msg *tgbotapi.Message) error 
 // sub-30-minute session that did not affect the streak).
 //
 // Display priority:
-//   1. New all-time record (>1 day)            → 🏆 celebration
-//   2. Streak just broke and restarted at 1    → ⚠️ + reassurance
-//   3. Streak continued (or first day at 1)    → 🔥 standard line
-//   4. Same-day re-completion                  → 🔥 standard line (no change)
+//  1. New all-time record (>1 day)            → 🏆 celebration
+//  2. Streak just broke and restarted at 1    → ⚠️ + reassurance
+//  3. Streak continued (or first day at 1)    → 🔥 standard line
+//  4. Same-day re-completion                  → 🔥 standard line (no change)
 func formatStreakSection(u *services.StreakUpdate) string {
 	if u == nil || !u.Counted {
 		return ""

@@ -127,6 +127,26 @@ DROP TRIGGER IF EXISTS trg_admin_actions_no_truncate ON admin_actions;
 CREATE TRIGGER trg_admin_actions_no_truncate
     BEFORE TRUNCATE ON admin_actions
     FOR EACH STATEMENT EXECUTE FUNCTION reject_admin_actions_mutation();
+
+-- Broadcasts: admin-initiated message fan-outs to every user. last_processed_user_id
+-- is the resume cursor — recipients are processed in ascending users.id order, so a
+-- restart mid-broadcast continues strictly after this id with no double-sends and no
+-- skipped users. status is 'running' until every recipient is attempted, then 'done'.
+CREATE TABLE IF NOT EXISTS broadcasts (
+    id                     BIGSERIAL   PRIMARY KEY,
+    message                TEXT        NOT NULL,
+    status                 TEXT        NOT NULL DEFAULT 'running',
+    total_recipients       INTEGER     NOT NULL DEFAULT 0,
+    sent_count             INTEGER     NOT NULL DEFAULT 0,
+    failed_count           INTEGER     NOT NULL DEFAULT 0,
+    last_processed_user_id BIGINT      NOT NULL DEFAULT 0,
+    created_by             BIGINT      NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    created_at             TIMESTAMPTZ NOT NULL DEFAULT now(),
+    finished_at            TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS idx_broadcasts_created
+    ON broadcasts(created_at DESC);
 `
 
 // migrate applies the schema. It runs as a single batched Exec inside one

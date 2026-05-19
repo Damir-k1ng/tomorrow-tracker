@@ -13,6 +13,7 @@ import (
 
 	"github.com/damirkabdulla/tomorrow-tracker/internal/models"
 	"github.com/damirkabdulla/tomorrow-tracker/internal/repositories"
+	"github.com/damirkabdulla/tomorrow-tracker/internal/services"
 )
 
 // auditSortColumns whitelists sortable columns for the audit-log listing.
@@ -419,4 +420,99 @@ func rawOrNil(raw json.RawMessage) any {
 		return nil
 	}
 	return raw
+}
+
+// --- broadcasts --------------------------------------------------------------
+
+// handleAdminStartBroadcast starts a message fan-out to every user. The send
+// runs in the background; the response is 202 Accepted with the broadcast id,
+// which the client polls via handleAdminGetBroadcast for live progress.
+func (s *Server) handleAdminStartBroadcast(w http.ResponseWriter, r *http.Request) {
+	text, err := parseBroadcastBody(r)
+	if err != nil {
+		WriteError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	admin := userFromContext(r.Context())
+	if admin == nil {
+		WriteError(w, http.StatusUnauthorized, "требуется авторизация")
+		return
+	}
+
+	b, err := s.broadcast.Start(admin.ID, text)
+	switch {
+	case errors.Is(err, services.ErrBroadcastInProgress):
+		WriteError(w, http.StatusConflict, "рассылка уже выполняется — дождитесь её завершения")
+		return
+	case errors.Is(err, services.ErrEmptyBroadcast):
+		WriteError(w, http.StatusBadRequest, "текст рассылки не может быть пустым")
+		return
+	case errors.Is(err, services.ErrBroadcastTooLong):
+		WriteError(w, http.StatusBadRequest, "текст рассылки слишком длинный")
+		return
+	case err != nil:
+		s.log.Error("api: start broadcast failed", slog.String("error", err.Error()))
+		WriteError(w, http.StatusInternalServerError, "не удалось запустить рассылку")
+		return
+	}
+
+	// Audit AFTER a successful start; a logging failure must not fail the call.
+	if err := s.admin.RecordBroadcast(r.Context(), admin.ID, b.TotalRecipients); err != nil {
+		s.log.Error("api: record broadcast audit failed", slog.String("error", err.Error()))
+	}
+	s.logAdminAction(admin.ID, "BROADCAST", "broadcast", b.ID)
+	WriteSuccess(w, http.StatusAccepted, broadcastDTO(*b))
+}
+
+// handleAdminListBroadcasts returns recent broadcasts, newest first.
+func (s *Server) handleAdminListBroadcasts(w http.ResponseWriter, r *http.Request) {
+	items, err := s.broadcast.List(r.Context(), 50)
+	if err != nil {
+		s.log.Error("api: list broadcasts failed", slog.String("error", err.Error()))
+		WriteError(w, http.StatusInternalServerError, "не удалось загрузить рассылки")
+		return
+	}
+	dtos := make([]map[string]any, 0, len(items))
+	for _, b := range items {
+		dtos = append(dtos, broadcastDTO(b))
+	}
+	WriteSuccess(w, http.StatusOK, dtos)
+}
+
+// handleAdminGetBroadcast returns one broadcast — the client polls it for the
+// live "sent N/total" progress while a fan-out is running.
+func (s *Server) handleAdminGetBroadcast(w http.ResponseWriter, r *http.Request) {
+	id, err := parsePathID(r)
+	if err != nil {
+		WriteError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	b, err := s.broadcast.Get(r.Context(), id)
+	if errors.Is(err, repositories.ErrNotFound) {
+		WriteError(w, http.StatusNotFound, "рассылка не найдена")
+		return
+	}
+	if err != nil {
+		s.log.Error("api: get broadcast failed", slog.String("error", err.Error()))
+		WriteError(w, http.StatusInternalServerError, "не удалось загрузить рассылку")
+		return
+	}
+	WriteSuccess(w, http.StatusOK, broadcastDTO(*b))
+}
+
+// broadcastDTO is the JSON shape of one broadcast.
+func broadcastDTO(b models.Broadcast) map[string]any {
+	dto := map[string]any{
+		"id":               b.ID,
+		"message":          b.Message,
+		"status":           b.Status,
+		"total_recipients": b.TotalRecipients,
+		"sent_count":       b.SentCount,
+		"failed_count":     b.FailedCount,
+		"created_at":       b.CreatedAt.Format(time.RFC3339),
+	}
+	if b.FinishedAt != nil {
+		dto["finished_at"] = b.FinishedAt.Format(time.RFC3339)
+	}
+	return dto
 }

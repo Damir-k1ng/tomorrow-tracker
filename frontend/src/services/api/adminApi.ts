@@ -134,6 +134,44 @@ function mapAdminSession(r: RawAdminSession): AdminSession {
   };
 }
 
+// --- broadcasts --------------------------------------------------------------
+
+/** One broadcast — an admin message fan-out to every user. */
+export interface Broadcast {
+  id: number;
+  message: string;
+  status: 'running' | 'done';
+  totalRecipients: number;
+  sentCount: number;
+  failedCount: number;
+  createdAt: string;
+  finishedAt: string | null;
+}
+
+interface RawBroadcast {
+  id: number;
+  message: string;
+  status: string;
+  total_recipients: number;
+  sent_count: number;
+  failed_count: number;
+  created_at: string;
+  finished_at?: string;
+}
+
+function mapBroadcast(r: RawBroadcast): Broadcast {
+  return {
+    id: r.id,
+    message: r.message,
+    status: r.status === 'done' ? 'done' : 'running',
+    totalRecipients: r.total_recipients,
+    sentCount: r.sent_count,
+    failedCount: r.failed_count,
+    createdAt: r.created_at,
+    finishedAt: r.finished_at ?? null,
+  };
+}
+
 export const adminApi = {
   /** GET /api/v1/admin/stats — operational counters. */
   async getStats(signal?: AbortSignal): Promise<AdminStats> {
@@ -233,5 +271,20 @@ export const adminApi = {
   /** GET /api/v1/admin/export/sessions — backend-generated CSV. */
   exportSessions(range: ExportRange): Promise<Blob> {
     return apiClient.download(`/admin/export/sessions?from=${range.from}&to=${range.to}`);
+  },
+
+  /**
+   * POST /api/v1/admin/broadcast — start a message fan-out to every user. The
+   * send runs in the background; the returned broadcast carries live counters
+   * the caller polls via listBroadcasts. 409 when one is already running.
+   */
+  async startBroadcast(text: string): Promise<Broadcast> {
+    return mapBroadcast(await apiClient.post<RawBroadcast>('/admin/broadcast', { text }));
+  },
+
+  /** GET /api/v1/admin/broadcasts — recent broadcasts, newest first. */
+  async listBroadcasts(signal?: AbortSignal): Promise<Broadcast[]> {
+    const raw = await apiClient.get<RawBroadcast[]>('/admin/broadcasts', { signal });
+    return raw.map(mapBroadcast);
   },
 };

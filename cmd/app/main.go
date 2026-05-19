@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	assets "github.com/damirkabdulla/tomorrow-tracker"
 	"github.com/damirkabdulla/tomorrow-tracker/internal/api"
@@ -75,6 +76,16 @@ func main() {
 	adminSvc := services.NewAdminService(adminRepo, sessionRepo, userRepo)
 	userAPISvc := services.NewUserAPIService(sessionRepo, leaderboardSvc, sessionSvc, streakSvc)
 
+	// Broadcast: admin message fan-out. Throttled to broadcastsPerSecond, well
+	// under Telegram's ~30/s global limit, so a running broadcast leaves
+	// headroom for the live bot's own replies.
+	const broadcastsPerSecond = 15
+	broadcastRepo := repositories.NewBroadcastRepository(pool)
+	broadcastSvc := services.NewBroadcastService(
+		ctx, broadcastRepo, bot.NewSender(tgAPI, log), time.Second/broadcastsPerSecond, log)
+	// Resume a broadcast left mid-flight by a previous deploy/restart.
+	broadcastSvc.Resume()
+
 	h := handlers.New(tgAPI, userSvc, sessionSvc, leaderboardSvc, streakSvc, log)
 	router := bot.NewRouter(h)
 	tgBot := bot.New(tgAPI, router, log, cfg.MiniAppURL)
@@ -109,7 +120,7 @@ func main() {
 	// HTTP server: Railway health endpoint, the /api/v1 surface, the embedded
 	// Mini App, and (in webhook mode) the Telegram webhook. Started before the
 	// bot so the platform — and Telegram — see a healthy service immediately.
-	apiSrv := api.New(cfg.Port, cfg.TelegramToken, cfg.CORSAllowedOrigins, userSvc, userAPISvc, adminSvc, spaHandler, config.WebhookPath, webhookHandler, log)
+	apiSrv := api.New(cfg.Port, cfg.TelegramToken, cfg.CORSAllowedOrigins, userSvc, userAPISvc, adminSvc, broadcastSvc, spaHandler, config.WebhookPath, webhookHandler, log)
 	apiSrv.Start()
 	defer apiSrv.Shutdown()
 

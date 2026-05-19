@@ -111,6 +111,18 @@ func (s *AdminService) RecordExport(ctx context.Context, adminID int64, action s
 	})
 }
 
+// RecordBroadcast appends the audit record for an admin broadcast. Called
+// after a broadcast is accepted, so every fan-out is logged with its
+// recipient count.
+func (s *AdminService) RecordBroadcast(ctx context.Context, adminID int64, recipients int) error {
+	after := []byte(fmt.Sprintf(`{"recipients":%d}`, recipients))
+	return s.admin.InsertAuditLog(ctx, repositories.AuditEntry{
+		AdminID:   adminID,
+		Action:    "BROADCAST",
+		AfterData: after,
+	})
+}
+
 // StreamUsers invokes fn for each user created in [from, to).
 func (s *AdminService) StreamUsers(ctx context.Context, from, to time.Time, fn func(models.User) error) error {
 	return s.admin.StreamUsers(ctx, from, to, fn)

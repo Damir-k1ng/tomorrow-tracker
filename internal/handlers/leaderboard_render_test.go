@@ -9,9 +9,9 @@ import (
 
 func TestRenderLeaderboard(t *testing.T) {
 	top := []services.LeaderboardEntry{
-		{Rank: 1, UserID: 1, Name: "Damir", Minutes: 642},  // 10ч 42м
-		{Rank: 2, UserID: 2, Name: "Alex", Minutes: 491},   // 8ч 11м
-		{Rank: 3, UserID: 3, Name: "Diana", Minutes: 418},  // 6ч 58м
+		{Rank: 1, UserID: 1, Name: "Damir", Minutes: 642}, // 10ч 42м
+		{Rank: 2, UserID: 2, Name: "Alex", Minutes: 491},  // 8ч 11м
+		{Rank: 3, UserID: 3, Name: "Diana", Minutes: 418}, // 6ч 58м
 	}
 
 	tests := []struct {

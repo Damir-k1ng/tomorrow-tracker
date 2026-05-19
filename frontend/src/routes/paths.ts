@@ -19,6 +19,7 @@ export const adminPaths = {
   audit: '/admin/audit',
   exports: '/admin/exports',
   moderation: '/admin/moderation',
+  broadcast: '/admin/broadcast',
 } as const;
 
 /** Route pattern for the admin user-detail screen (react-router param form). */

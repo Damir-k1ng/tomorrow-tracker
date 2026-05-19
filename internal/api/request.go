@@ -273,3 +273,18 @@ func optionalBool(r *http.Request, key string) *bool {
 		return nil
 	}
 }
+
+// parseBroadcastBody decodes the broadcast request body — a single "text"
+// field. Emptiness and length are validated downstream by the broadcast
+// service, so all callers map one consistent set of errors.
+func parseBroadcastBody(r *http.Request) (string, error) {
+	dec := json.NewDecoder(r.Body)
+	dec.DisallowUnknownFields()
+	var body struct {
+		Text string `json:"text"`
+	}
+	if err := dec.Decode(&body); err != nil {
+		return "", errors.New("некорректное тело запроса: ожидается поле text")
+	}
+	return body.Text, nil
+}

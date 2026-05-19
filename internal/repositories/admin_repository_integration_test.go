@@ -365,9 +365,9 @@ func TestIntegration_ListSessions_Filters(t *testing.T) {
 	u1 := insertUser(t, pool, 201, "user")
 	u2 := insertUser(t, pool, 202, "user")
 	base := time.Date(2026, 5, 16, 20, 0, 0, 0, almatyTZ)
-	insertFinished(t, pool, u1, base, 60, true)                     // u1, valid, no flags
+	insertFinished(t, pool, u1, base, 60, true)                            // u1, valid, no flags
 	flagged := insertFinished(t, pool, u1, base.Add(time.Hour), 20, false) // u1, invalid
-	insertFinished(t, pool, u2, base, 90, true)                     // u2, valid
+	insertFinished(t, pool, u2, base, 90, true)                            // u2, valid
 
 	if _, err := pool.Exec(ctx,
 		`UPDATE sessions SET anti_cheat_flags = '["manual_review"]'::jsonb WHERE id = $1`,

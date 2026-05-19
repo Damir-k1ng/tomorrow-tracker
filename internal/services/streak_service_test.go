@@ -36,10 +36,10 @@ func ptrT(t time.Time) *time.Time { return &t }
 
 func TestComputeStreakUpdate(t *testing.T) {
 	cases := []struct {
-		name     string
-		state    StreakState
-		endedAt  time.Time
-		want     StreakUpdate
+		name    string
+		state   StreakState
+		endedAt time.Time
+		want    StreakUpdate
 	}{
 		{
 			name:    "first ever session",
@@ -285,4 +285,3 @@ func TestRecordCompletedSession_MissedDayResets(t *testing.T) {
 		t.Errorf("expected Broken=true Current=1 Best=11, got %+v", upd)
 	}
 }
-

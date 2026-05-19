@@ -12,7 +12,13 @@ export {
   useFinishSessionMutation,
   userQueryKeys,
 } from './userQueries';
-export { adminApi, ADMIN_PAGE_SIZE, type ExportRange, type AdminUserSort } from './adminApi';
+export {
+  adminApi,
+  ADMIN_PAGE_SIZE,
+  type ExportRange,
+  type AdminUserSort,
+  type Broadcast,
+} from './adminApi';
 export {
   useAdminStatsQuery,
   useAdminUsersQuery,
@@ -20,6 +26,8 @@ export {
   useAuditLogsQuery,
   useAdminSessionsQuery,
   useCorrectSessionMutation,
+  useBroadcastsQuery,
+  useStartBroadcastMutation,
   adminQueryKeys,
   type AdminSessionFilter,
 } from './adminQueries';

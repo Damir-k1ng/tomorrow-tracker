@@ -41,15 +41,15 @@ func (h *Handlers) Leaderboard(ctx context.Context, msg *tgbotapi.Message) error
 //
 // Layout (mobile-optimized — single blank line between blocks, no padding):
 //
-//   🏆 Топ студентов недели
+//	🏆 Топ студентов недели
 //
-//   1. Damir — 10ч 42м 🔥
-//   2. Alex — 8ч 11м
-//   ...
-//   ━━━━━━━━━━
+//	1. Damir — 10ч 42м 🔥
+//	2. Alex — 8ч 11м
+//	...
+//	━━━━━━━━━━
 //
-//   📍 <position label>
-//   #N — Xч YYм 🚀
+//	📍 <position label>
+//	#N — Xч YYм 🚀
 func renderLeaderboard(snap *services.LeaderboardSnapshot) string {
 	var b strings.Builder
 	b.WriteString("🏆 Топ студентов недели\n\n")
