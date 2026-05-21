@@ -9,14 +9,55 @@ package services
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/http"
 	"sync"
 	"time"
 )
+
+// userAgent is sent on every Pioneer call. Some CDNs (CloudFront in particular)
+// treat anonymous traffic as bot-like and apply tighter rate limits.
+const userAgent = "tomorrow-tracker-bot/1.0 (+https://github.com/Damir-k1ng/tomorrow-tracker)"
+
+// pioneerHTTPClient builds the HTTP client used to call Pioneer. Two
+// production-only quirks live here:
+//
+//  1. IPv4 only. Railway containers advertise IPv6 connectivity, but the
+//     Railway → AWS CloudFront IPv6 path silently stalls on POST bodies.
+//     Forcing "tcp4" makes the dialer skip IPv6 entirely.
+//  2. HTTP/1.1 only. The default Go HTTP/2 client occasionally hangs while
+//     awaiting headers from CloudFront-fronted endpoints. Disabling h2 keeps
+//     us on a code path curl also uses successfully.
+func pioneerHTTPClient() *http.Client {
+	dialer := &net.Dialer{
+		Timeout:   10 * time.Second,
+		KeepAlive: 30 * time.Second,
+	}
+	tr := &http.Transport{
+		Proxy: http.ProxyFromEnvironment,
+		DialContext: func(ctx context.Context, _, addr string) (net.Conn, error) {
+			return dialer.DialContext(ctx, "tcp4", addr)
+		},
+		ForceAttemptHTTP2:     false,
+		TLSHandshakeTimeout:   10 * time.Second,
+		ResponseHeaderTimeout: 90 * time.Second,
+		ExpectContinueTimeout: 1 * time.Second,
+		IdleConnTimeout:       90 * time.Second,
+		MaxIdleConns:          10,
+		// Empty (non-nil) TLSNextProto disables HTTP/2 even when the server
+		// advertises h2 via ALPN — see https://pkg.go.dev/net/http#Transport.
+		TLSNextProto: make(map[string]func(authority string, c *tls.Conn) http.RoundTripper),
+	}
+	return &http.Client{
+		Timeout:   requestTimeout,
+		Transport: tr,
+	}
+}
 
 // SystemPrompt steers the model into mentor mode: hints, not answers.
 const SystemPrompt = `You are a helpful programming mentor for students at 01.tomorrow-school.ai (Astana Hub Piscine).
@@ -61,12 +102,10 @@ func NewAIService(apiKey, modelID, apiURL string, log *slog.Logger) *AIService {
 		return nil
 	}
 	return &AIService{
-		apiKey:  apiKey,
-		modelID: modelID,
-		apiURL:  apiURL,
-		http: &http.Client{
-			Timeout: requestTimeout,
-		},
+		apiKey:    apiKey,
+		modelID:   modelID,
+		apiURL:    apiURL,
+		http:      pioneerHTTPClient(),
 		log:       log,
 		histories: make(map[int64][]Message),
 	}
@@ -176,6 +215,8 @@ func (s *AIService) callPioneer(ctx context.Context, messages []Message) (string
 	}
 	req.Header.Set("Authorization", "Bearer "+s.apiKey)
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("User-Agent", userAgent)
 
 	resp, err := s.http.Do(req)
 	if err != nil {
