@@ -64,7 +64,19 @@ func (r *Router) Dispatch(ctx context.Context, update tgbotapi.Update) error {
 		return r.h.Schedule(ctx, msg)
 	case menu.BtnLeaderboard:
 		return r.h.Leaderboard(ctx, msg)
-	default:
-		return r.h.Unknown(ctx, msg)
+	case menu.BtnAIMentor:
+		return r.h.EnterAIMode(ctx, msg)
+	case menu.BtnExitAI:
+		return r.h.ExitAIMode(ctx, msg)
+	case menu.BtnClearAI:
+		return r.h.ClearAI(ctx, msg)
 	}
+
+	// In free-form AI chat mode, any non-button text is forwarded to the
+	// model. Outside AI mode this branch is dead, so the user falls through
+	// to Unknown which steers them back to the menu.
+	if r.h.InAIMode(msg.From.ID) {
+		return r.h.AskFree(ctx, msg)
+	}
+	return r.h.Unknown(ctx, msg)
 }

@@ -71,6 +71,12 @@ const (
 	historySendWindow = 6  // last N messages forwarded to the API
 	requestTimeout    = 60 * time.Second
 	maxTokens         = 1024
+
+	// retry policy: 5xx and transient network errors get up to retryMax
+	// extra attempts with a short backoff. 4xx (auth, bad request) is
+	// not retried — those won't fix themselves.
+	retryMax     = 2
+	retryBackoff = 1 * time.Second
 )
 
 // ErrNotConfigured is returned by callers when the AI service is requested
@@ -83,7 +89,8 @@ type Message struct {
 	Content string `json:"content"`
 }
 
-// AIService is the Pioneer client + per-user history store.
+// AIService is the Pioneer client + per-user history store + per-user
+// "in AI chat mode" flag.
 type AIService struct {
 	apiKey  string
 	modelID string
@@ -93,6 +100,7 @@ type AIService struct {
 
 	mu        sync.Mutex
 	histories map[int64][]Message
+	inAIMode  map[int64]bool
 }
 
 // NewAIService constructs the service. Returns nil if credentials are missing
@@ -108,6 +116,7 @@ func NewAIService(apiKey, modelID, apiURL string, log *slog.Logger) *AIService {
 		http:      pioneerHTTPClient(),
 		log:       log,
 		histories: make(map[int64][]Message),
+		inAIMode:  make(map[int64]bool),
 	}
 }
 
@@ -139,6 +148,38 @@ func (s *AIService) Clear(userID int64) {
 	s.mu.Lock()
 	delete(s.histories, userID)
 	s.mu.Unlock()
+}
+
+// EnterAIMode flips the user into free-form chat mode: every subsequent
+// non-button message will be routed to the AI without needing /ask.
+func (s *AIService) EnterAIMode(userID int64) {
+	if s == nil {
+		return
+	}
+	s.mu.Lock()
+	s.inAIMode[userID] = true
+	s.mu.Unlock()
+}
+
+// ExitAIMode flips the user out of free-form chat mode.
+func (s *AIService) ExitAIMode(userID int64) {
+	if s == nil {
+		return
+	}
+	s.mu.Lock()
+	delete(s.inAIMode, userID)
+	s.mu.Unlock()
+}
+
+// IsInAIMode reports whether the user is currently in free-form chat mode.
+// A nil service always reports false so callers don't need to nil-check.
+func (s *AIService) IsInAIMode(userID int64) bool {
+	if s == nil {
+		return false
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.inAIMode[userID]
 }
 
 // snapshotHistory returns a copy of the user's history so the caller can read
@@ -209,9 +250,39 @@ func (s *AIService) callPioneer(ctx context.Context, messages []Message) (string
 		return "", fmt.Errorf("marshal request: %w", err)
 	}
 
+	var lastErr error
+	for attempt := 0; attempt <= retryMax; attempt++ {
+		if attempt > 0 {
+			s.log.Warn("pioneer retry",
+				slog.Int("attempt", attempt),
+				slog.String("last_error", lastErr.Error()),
+			)
+			select {
+			case <-ctx.Done():
+				return "", ctx.Err()
+			case <-time.After(retryBackoff * time.Duration(attempt)):
+			}
+		}
+
+		reply, retriable, err := s.doPioneerRequest(ctx, body)
+		if err == nil {
+			return reply, nil
+		}
+		lastErr = err
+		if !retriable {
+			return "", err
+		}
+	}
+	return "", fmt.Errorf("after %d retries: %w", retryMax, lastErr)
+}
+
+// doPioneerRequest performs a single HTTP round-trip. The second return value
+// reports whether the caller should retry: transient errors (network, 5xx,
+// 429) are retriable; 4xx auth/validation errors are not.
+func (s *AIService) doPioneerRequest(ctx context.Context, body []byte) (string, bool, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, s.apiURL, bytes.NewReader(body))
 	if err != nil {
-		return "", fmt.Errorf("build request: %w", err)
+		return "", false, fmt.Errorf("build request: %w", err)
 	}
 	req.Header.Set("Authorization", "Bearer "+s.apiKey)
 	req.Header.Set("Content-Type", "application/json")
@@ -220,13 +291,18 @@ func (s *AIService) callPioneer(ctx context.Context, messages []Message) (string
 
 	resp, err := s.http.Do(req)
 	if err != nil {
-		return "", fmt.Errorf("do request: %w", err)
+		// Network failures (DNS, connection reset, timeout) are retriable
+		// unless the caller's context has expired.
+		retriable := ctx.Err() == nil
+		return "", retriable, fmt.Errorf("do request: %w", err)
 	}
 	defer resp.Body.Close()
 
 	var parsed pioneerResponse
 	if err := json.NewDecoder(resp.Body).Decode(&parsed); err != nil {
-		return "", fmt.Errorf("decode response (status %d): %w", resp.StatusCode, err)
+		// A decode failure on a 5xx body shouldn't poison retry — treat
+		// the round-trip as retriable when the upstream itself faltered.
+		return "", resp.StatusCode >= 500, fmt.Errorf("decode response (status %d): %w", resp.StatusCode, err)
 	}
 
 	if resp.StatusCode >= 400 {
@@ -234,10 +310,14 @@ func (s *AIService) callPioneer(ctx context.Context, messages []Message) (string
 		if parsed.Error != nil {
 			msg = parsed.Error.Message
 		}
-		return "", fmt.Errorf("pioneer status %d: %s", resp.StatusCode, msg)
+		// 408 / 429 / 5xx are transient; the rest are not.
+		retriable := resp.StatusCode == http.StatusRequestTimeout ||
+			resp.StatusCode == http.StatusTooManyRequests ||
+			resp.StatusCode >= 500
+		return "", retriable, fmt.Errorf("pioneer status %d: %s", resp.StatusCode, msg)
 	}
 	if len(parsed.Choices) == 0 {
-		return "", errors.New("pioneer returned no choices")
+		return "", false, errors.New("pioneer returned no choices")
 	}
-	return parsed.Choices[0].Message.Content, nil
+	return parsed.Choices[0].Message.Content, false, nil
 }

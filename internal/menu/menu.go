@@ -13,6 +13,9 @@ const (
 	BtnStart       = "▶️ Начать сессию"
 	BtnEnd         = "⏹ Завершить сессию"
 	BtnLeaderboard = "🏆 Топ-10"
+	BtnAIMentor    = "🤖 AI-ментор"
+	BtnExitAI      = "🚪 Выйти из AI"
+	BtnClearAI     = "🗑 Очистить диалог"
 )
 
 // Main builds the persistent reply keyboard shown after /start.
@@ -28,6 +31,20 @@ func Main() tgbotapi.ReplyKeyboardMarkup {
 		),
 		tgbotapi.NewKeyboardButtonRow(
 			tgbotapi.NewKeyboardButton(BtnLeaderboard),
+			tgbotapi.NewKeyboardButton(BtnAIMentor),
+		),
+	)
+	kb.ResizeKeyboard = true
+	return kb
+}
+
+// AIMode builds the reply keyboard shown while the student is in free-form
+// AI chat mode. Two buttons: clear the dialog or exit back to the main menu.
+func AIMode() tgbotapi.ReplyKeyboardMarkup {
+	kb := tgbotapi.NewReplyKeyboard(
+		tgbotapi.NewKeyboardButtonRow(
+			tgbotapi.NewKeyboardButton(BtnClearAI),
+			tgbotapi.NewKeyboardButton(BtnExitAI),
 		),
 	)
 	kb.ResizeKeyboard = true

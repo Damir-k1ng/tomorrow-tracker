@@ -49,11 +49,11 @@ const helpText = `ℹ️ Команды Tomorrow Tracker
 ⏱ /hours — мои часы и прогресс
 📅 /schedule — расписание бассейна
 🏆 /top — Топ-10 рейтинга
-🤖 /ask <вопрос> — AI-ментор по Go (Piscine)
+🤖 /ask <вопрос> — спросить AI-ментора (Go, Piscine)
 🗑️ /clear — очистить историю AI-диалога
 🚀 /start — меню
 
-Можно пользоваться кнопками меню ниже или командами — как удобнее.`
+Совет: нажми кнопку "🤖 AI-ментор" в меню — там можно писать свободно, без /ask перед каждым вопросом.`
 
 // Help handles the /help command — a concise command reference. It also
 // re-sends the menu keyboard so the buttons stay within reach.
