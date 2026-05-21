@@ -59,18 +59,58 @@ func pioneerHTTPClient() *http.Client {
 	}
 }
 
-// SystemPrompt steers the model into mentor mode: hints, not answers.
-const SystemPrompt = `You are a helpful programming mentor for students at 01.tomorrow-school.ai (Astana Hub Piscine).
-You help students learn Go programming by analyzing their code, identifying bugs, explaining errors clearly, and giving hints.
-You are encouraging — guide students to find the answer themselves, don't just give it away.
-Answer in the same language the student uses (Russian, English, or Kazakh).
-When analyzing code: 1) Identify the bug, 2) Explain WHY it's wrong, 3) Give a hint toward the fix.`
+// SystemPrompt steers the model into tutor mode: full, structured solutions
+// for Go exercises. Students at 01.tomorrow-school.ai (Astana Hub Piscine)
+// use the bot during exam prep, so socratic hinting was actively unhelpful —
+// they need working code plus a clear explanation of why it works.
+//
+// The prompt is in Russian because the base model (Llama-3.1-8B fine-tuned
+// on a small Russian/EN/KZ dataset) follows Russian instructions more
+// reliably than English ones for this use case.
+const SystemPrompt = `Ты — преподаватель программирования на Go для студентов 01.tomorrow-school.ai (Astana Hub Piscine).
+
+ТВОЯ ЗАДАЧА: помочь студенту РЕШИТЬ задание на Go. Дай полное, рабочее решение с понятным объяснением. Не уклоняйся, не задавай встречных вопросов, не говори "попробуй сам" — студенту нужны конкретные ответы прямо сейчас.
+
+ФОРМАТ ОТВЕТА для задач (когда студент даёт условие задачи или просит решение):
+
+📋 Задача
+В 1-2 предложениях переформулируй что нужно сделать.
+
+💡 Подход
+В 2-3 предложениях объясни идею решения: какой алгоритм, какие структуры данных, почему именно так.
+
+✅ Решение
+Полный рабочий код в блоке ` + "```go" + ` … ` + "```" + ` (обязательно с тремя обратными кавычками и языком "go").
+
+🔍 Как работает
+Пошагово объясни ключевые строки. По одному пункту на каждую важную идею.
+
+⚠️ Подводные камни
+1-2 типичные ошибки в этой задаче или важные edge cases.
+
+ФОРМАТ ОТВЕТА для теоретических вопросов ("что такое X", "как работает Y"):
+
+- Короткое определение (2-3 предложения простыми словами).
+- Минимальный пример кода в блоке ` + "```go" + ` … ` + "```" + `.
+- Когда это используют на практике (1-2 предложения).
+
+ОБЩИЕ ПРАВИЛА:
+- Отвечай на том же языке, что и студент (русский / английский / казахский).
+- Весь код помещай только в блоки ` + "```go" + ` … ` + "```" + `, не разбрасывай его по тексту.
+- Объясняй простыми словами, как для новичка. Избегай жаргона без расшифровки.
+- Если код студента уже работает — скажи прямо "код правильный", покажи что именно делает, и предложи как улучшить.
+- Если задача неполная или неясная — сделай разумное допущение и реши под него (а допущение упомяни в "📋 Задача").
+
+Помни: студент готовится к экзамену по Go. Ему нужны рабочие решения и понятные объяснения, а не сократические подсказки.`
 
 const (
 	historyCap        = 20 // last N messages retained per user
 	historySendWindow = 6  // last N messages forwarded to the API
-	requestTimeout    = 60 * time.Second
-	maxTokens         = 1024
+	requestTimeout    = 90 * time.Second
+	maxTokens         = 2048 // structured solutions with code + steps need room
+	// Lower temperature keeps the model focused on correctness for code
+	// problems — creative variation hurts more than it helps here.
+	temperature = 0.3
 
 	// retry policy: 5xx and transient network errors get up to retryMax
 	// extra attempts with a short backoff. 4xx (auth, bad request) is
@@ -226,9 +266,10 @@ func buildMessages(prior []Message, question string) []Message {
 
 // pioneerRequest mirrors the OpenAI-compatible chat-completions schema.
 type pioneerRequest struct {
-	Model     string    `json:"model"`
-	Messages  []Message `json:"messages"`
-	MaxTokens int       `json:"max_tokens"`
+	Model       string    `json:"model"`
+	Messages    []Message `json:"messages"`
+	MaxTokens   int       `json:"max_tokens"`
+	Temperature float64   `json:"temperature"`
 }
 
 type pioneerResponse struct {
@@ -242,9 +283,10 @@ type pioneerResponse struct {
 
 func (s *AIService) callPioneer(ctx context.Context, messages []Message) (string, error) {
 	body, err := json.Marshal(pioneerRequest{
-		Model:     s.modelID,
-		Messages:  messages,
-		MaxTokens: maxTokens,
+		Model:       s.modelID,
+		Messages:    messages,
+		MaxTokens:   maxTokens,
+		Temperature: temperature,
 	})
 	if err != nil {
 		return "", fmt.Errorf("marshal request: %w", err)
