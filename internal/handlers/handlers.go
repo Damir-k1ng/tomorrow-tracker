@@ -20,16 +20,19 @@ type Handlers struct {
 	sessions    *services.SessionService
 	leaderboard *services.LeaderboardService
 	streaks     *services.StreakService
+	ai          *services.AIService // nil when PIONEER_API_KEY is unset
 	log         *slog.Logger
 }
 
-// New builds the handler bundle.
+// New builds the handler bundle. ai may be nil — the /ask handler degrades
+// gracefully to an "AI disabled" message instead of crashing.
 func New(
 	bot *tgbotapi.BotAPI,
 	users *services.UserService,
 	sessions *services.SessionService,
 	leaderboard *services.LeaderboardService,
 	streaks *services.StreakService,
+	ai *services.AIService,
 	log *slog.Logger,
 ) *Handlers {
 	return &Handlers{
@@ -38,6 +41,7 @@ func New(
 		sessions:    sessions,
 		leaderboard: leaderboard,
 		streaks:     streaks,
+		ai:          ai,
 		log:         log,
 	}
 }

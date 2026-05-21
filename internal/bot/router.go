@@ -44,6 +44,10 @@ func (r *Router) Dispatch(ctx context.Context, update tgbotapi.Update) error {
 			return r.h.Schedule(ctx, msg)
 		case "top":
 			return r.h.Leaderboard(ctx, msg)
+		case "ask":
+			return r.h.Ask(ctx, msg)
+		case "clear":
+			return r.h.ClearAI(ctx, msg)
 		default:
 			return r.h.Unknown(ctx, msg)
 		}

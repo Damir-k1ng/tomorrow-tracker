@@ -32,6 +32,9 @@ type Config struct {
 	MiniAppURL         string // public HTTPS URL of the Mini App; "" disables the bot menu button
 	WebhookSecret      string // Telegram webhook secret token; "" → long-polling mode
 	WebhookURL         string // full public URL Telegram posts updates to (webhook mode only)
+	PioneerAPIKey      string // Pioneer AI API key; "" disables the /ask AI mentor
+	PioneerModelID     string // Pioneer fine-tuned model ID for the mentor
+	PioneerAPIURL      string // Pioneer chat-completions endpoint (override for tests)
 }
 
 // IsProduction reports whether the bot is running in a production deployment.
@@ -115,6 +118,11 @@ func Load() (*Config, error) {
 		MiniAppURL:    miniAppURL,
 		WebhookSecret: webhookSecret,
 		WebhookURL:    webhookURL,
+		// Pioneer AI is opt-in: empty PIONEER_API_KEY disables the /ask command
+		// without breaking the rest of the bot.
+		PioneerAPIKey:  getEnv("PIONEER_API_KEY", ""),
+		PioneerModelID: getEnv("PIONEER_MODEL_ID", ""),
+		PioneerAPIURL:  getEnv("PIONEER_API_URL", "https://api.pioneer.ai/v1/chat/completions"),
 	}, nil
 }
 

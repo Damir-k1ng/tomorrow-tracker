@@ -86,7 +86,16 @@ func main() {
 	// Resume a broadcast left mid-flight by a previous deploy/restart.
 	broadcastSvc.Resume()
 
-	h := handlers.New(tgAPI, userSvc, sessionSvc, leaderboardSvc, streakSvc, log)
+	// AI mentor is opt-in: NewAIService returns nil when PIONEER_API_KEY is
+	// unset, and the /ask handler shows a graceful message in that case.
+	aiSvc := services.NewAIService(cfg.PioneerAPIKey, cfg.PioneerModelID, cfg.PioneerAPIURL, log)
+	if aiSvc != nil {
+		log.Info("ai mentor enabled", slog.String("model_id", cfg.PioneerModelID))
+	} else {
+		log.Info("ai mentor disabled — PIONEER_API_KEY or PIONEER_MODEL_ID not set")
+	}
+
+	h := handlers.New(tgAPI, userSvc, sessionSvc, leaderboardSvc, streakSvc, aiSvc, log)
 	router := bot.NewRouter(h)
 	tgBot := bot.New(tgAPI, router, log, cfg.MiniAppURL)
 
