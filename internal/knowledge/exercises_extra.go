@@ -2933,35 +2933,35 @@ part (the "low-order" half).
 
 import "github.com/01-edu/z01"
 
-func PrintPositiveNum(n int) {
-	// var r string
-	c := '0'
-	for i := 1; i <= n%10; i++ {
-		c++
-	}
-	for i := -1; i >= n%10; i-- {
-		c++
-	}
-	if n/10 != 0 {
-		PrintPositiveNum(n / 10)
-	}
-	z01.PrintRune(c)
-	/************if you want to use string fmt*******/
-	// r=r+string(c)
-	// fmt.Print(r)
-}
-
+// PrintNbr печатает целое число через z01.PrintRune.
+// MinInt-safe: НЕ делает n = -n, потому что -math.MinInt64 переполняет int64.
+// Работаем с отрицательным n напрямую: -(n%10) даёт цифру 0..9 безопасно.
 func PrintNbr(n int) {
 	if n < 0 {
 		z01.PrintRune('-')
+		printNbrNeg(n)
+		return
 	}
-	PrintPositiveNum(n)
+	printNbrPos(n)
 }
 
-// quest 2. (itoa)
+func printNbrPos(n int) {
+	if n >= 10 {
+		printNbrPos(n / 10)
+	}
+	z01.PrintRune(rune(n%10) + '0')
+}
+
+func printNbrNeg(n int) {
+	// n всегда отрицательный; -(n%10) безопасно (одна цифра, не переполняется)
+	if n <= -10 {
+		printNbrNeg(n / 10)
+	}
+	z01.PrintRune(rune(-(n%10)) + '0')
+}
 `,
-		Description: "Печатает целое число через z01.PrintRune, поддерживая отрицательные через знак '-'. Использует рекурсию для разбора числа по цифрам.",
-		Concepts:    []string{"printnbr", "печать", "вывод", "print"},
+		Description: "Печатает целое число через z01.PrintRune, поддерживает отрицательные. MinInt-safe: не использует n=-n, работает с отрицательным числом напрямую через -(n%10).",
+		Concepts:    []string{"printnbr", "печать", "вывод", "print", "рекурсия", "minint", "overflow"},
 	},
 	{
 		Name:        "printnbr2",
