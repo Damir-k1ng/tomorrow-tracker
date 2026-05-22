@@ -8,6 +8,7 @@ import (
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 
 	"github.com/damirkabdulla/tomorrow-tracker/internal/menu"
+	"github.com/damirkabdulla/tomorrow-tracker/internal/services"
 )
 
 // telegramMessageLimit is the maximum single Telegram message length in
@@ -17,15 +18,33 @@ const telegramMessageLimit = 4096
 
 const aiModeWelcome = `🤖 <b>AI-ментор включён</b>
 
-Теперь просто пиши свой вопрос или вставляй код — я отвечу.
-Можно по-русски или по-английски.
+Выбери режим работы кнопкой снизу или просто пиши вопрос (по умолчанию — режим "Решить"):
 
-Например:
-• <i>почему мой цикл for бесконечный?</i>
-• <i>что делает оператор &amp; в Go?</i>
-• <i>дай скелет HTTP-сервера</i>
+🧮 <b>Решить</b> — пришли условие задачи Piscine, дам полное решение со структурой и кодом
+📖 <b>Объяснить</b> — пришли кусок кода, разберу его построчно (без переписывания)
+🔍 <b>Ревью</b> — пришли свой код, дам честный код-ревью как senior
+🎓 <b>Туториал</b> — назови тему ("указатели", "goroutines"), дам пошаговый туториал
 
-Кнопки внизу: 🗑 очистить диалог или 🚪 выйти.`
+Языки: русский или английский.
+
+🗑 — очистить диалог, 🚪 — выйти из AI.`
+
+// modeAnnouncements are sent right after the user taps a persona button.
+// They confirm the switch and prompt the student for the right input shape.
+var modeAnnouncements = map[services.Mode]string{
+	services.ModeSolve: "🧮 <b>Режим: Решить задачу</b>\n\n" +
+		"Пришли условие задачи Piscine (с ожидаемой сигнатурой функции, если есть) — дам полное решение в формате:\n" +
+		"📋 Задача → 💡 Подход → ✅ Решение → 🔍 Как работает → ⚠️ Подводные камни",
+	services.ModeExplain: "📖 <b>Режим: Объяснить код</b>\n\n" +
+		"Пришли кусок Go-кода — разберу построчно, без переписывания и альтернатив.\n" +
+		"Подойдёт для: чужой код в репозитории, код препода, непонятный отрывок из учебника.",
+	services.ModeReview: "🔍 <b>Режим: Код-ревью</b>\n\n" +
+		"Пришли свой Go-код — проведу честное code review как senior. Найду баги, race conditions, неидиоматичный Go.\n" +
+		"В конце дам вердикт: ✅ готово к merge / ⚠️ нужны правки / ❌ переписать.",
+	services.ModeTutorial: "🎓 <b>Режим: Туториал</b>\n\n" +
+		"Назови тему по Go — дам пошаговый туториал с примерами.\n" +
+		"Например: <i>указатели</i>, <i>goroutines</i>, <i>channels</i>, <i>interfaces</i>, <i>slice vs array</i>, <i>defer/panic/recover</i>.",
+}
 
 const aiDisabled = "🤖 AI-ментор временно недоступен. Попробуй позже или используй кнопки меню."
 
@@ -112,6 +131,7 @@ func (h *Handlers) askAI(ctx context.Context, msg *tgbotapi.Message, question st
 
 // EnterAIMode is called when the user taps "🤖 AI-ментор". It flips the
 // per-user flag in AIService and swaps the keyboard to the AI-mode buttons.
+// The mode resets to ModeSolve (default) so re-entering AI feels predictable.
 func (h *Handlers) EnterAIMode(ctx context.Context, msg *tgbotapi.Message) error {
 	if _, err := h.ensureUser(ctx, msg.From); err != nil {
 		return err
@@ -120,8 +140,33 @@ func (h *Handlers) EnterAIMode(ctx context.Context, msg *tgbotapi.Message) error
 		return h.reply(msg.Chat.ID, aiDisabled, nil)
 	}
 	h.ai.EnterAIMode(msg.From.ID)
+	h.ai.SetMode(msg.From.ID, services.ModeSolve)
 	kb := menu.AIMode()
 	return h.replyHTMLWithKB(msg.Chat.ID, aiModeWelcome, &kb)
+}
+
+// SwitchMode is the single entry point for all four persona buttons.
+// It updates the user's mode in AIService and replies with a short
+// confirmation that prompts the student for the right kind of input.
+func (h *Handlers) SwitchMode(ctx context.Context, msg *tgbotapi.Message, mode services.Mode) error {
+	if _, err := h.ensureUser(ctx, msg.From); err != nil {
+		return err
+	}
+	if h.ai == nil {
+		return h.reply(msg.Chat.ID, aiDisabled, nil)
+	}
+	// Auto-enter AI mode if the user tapped a persona button straight from
+	// the main menu somehow — defensive, normally they're already in AI.
+	if !h.ai.IsInAIMode(msg.From.ID) {
+		h.ai.EnterAIMode(msg.From.ID)
+	}
+	h.ai.SetMode(msg.From.ID, mode)
+	announcement, ok := modeAnnouncements[mode]
+	if !ok {
+		announcement = modeAnnouncements[services.ModeSolve]
+	}
+	kb := menu.AIMode()
+	return h.replyHTMLWithKB(msg.Chat.ID, announcement, &kb)
 }
 
 // ExitAIMode is called when the user taps "🚪 Выйти из AI". The free-form

@@ -16,6 +16,13 @@ const (
 	BtnAIMentor    = "🤖 AI-ментор"
 	BtnExitAI      = "🚪 Выйти из AI"
 	BtnClearAI     = "🗑 Очистить диалог"
+
+	// AI persona switchers — each one flips the user's mode in AIService
+	// so the next free-form message goes to a different system prompt.
+	BtnModeSolve    = "🧮 Решить"
+	BtnModeExplain  = "📖 Объяснить"
+	BtnModeReview   = "🔍 Ревью"
+	BtnModeTutorial = "🎓 Туториал"
 )
 
 // Main builds the persistent reply keyboard shown after /start.
@@ -39,9 +46,19 @@ func Main() tgbotapi.ReplyKeyboardMarkup {
 }
 
 // AIMode builds the reply keyboard shown while the student is in free-form
-// AI chat mode. Two buttons: clear the dialog or exit back to the main menu.
+// AI chat mode. Four persona buttons (Solve / Explain / Review / Tutorial)
+// switch the system prompt used for subsequent messages; the bottom row
+// clears the dialog or exits back to the main menu.
 func AIMode() tgbotapi.ReplyKeyboardMarkup {
 	kb := tgbotapi.NewReplyKeyboard(
+		tgbotapi.NewKeyboardButtonRow(
+			tgbotapi.NewKeyboardButton(BtnModeSolve),
+			tgbotapi.NewKeyboardButton(BtnModeExplain),
+		),
+		tgbotapi.NewKeyboardButtonRow(
+			tgbotapi.NewKeyboardButton(BtnModeReview),
+			tgbotapi.NewKeyboardButton(BtnModeTutorial),
+		),
 		tgbotapi.NewKeyboardButtonRow(
 			tgbotapi.NewKeyboardButton(BtnClearAI),
 			tgbotapi.NewKeyboardButton(BtnExitAI),

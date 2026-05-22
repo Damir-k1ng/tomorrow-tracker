@@ -59,15 +59,42 @@ func pioneerHTTPClient() *http.Client {
 	}
 }
 
-// SystemPrompt steers the model into tutor mode: full, structured solutions
+// Mode selects one of the four AI personas exposed in the bot's AI chat
+// keyboard. Each persona is a separate system prompt below; the model is
+// the same fine-tune, only the framing changes.
+type Mode string
+
+const (
+	ModeSolve    Mode = "solve"    // default — full structured solution
+	ModeExplain  Mode = "explain"  // walk through existing code line-by-line
+	ModeReview   Mode = "review"   // senior code review with verdict
+	ModeTutorial Mode = "tutorial" // teach a concept from scratch
+)
+
+// SystemPromptFor returns the system prompt for the given mode. Unknown
+// modes fall back to ModeSolve so the bot never sends an empty prompt.
+func SystemPromptFor(m Mode) string {
+	switch m {
+	case ModeExplain:
+		return promptExplain
+	case ModeReview:
+		return promptReview
+	case ModeTutorial:
+		return promptTutorial
+	default:
+		return promptSolve
+	}
+}
+
+// promptSolve steers the model into tutor mode: full, structured solutions
 // for Go exercises. Students at 01.tomorrow-school.ai (Astana Hub Piscine)
 // use the bot during exam prep, so socratic hinting was actively unhelpful —
 // they need working code plus a clear explanation of why it works.
 //
-// The prompt is in Russian because the base model (Llama-3.1-8B fine-tuned
-// on a small Russian/EN/KZ dataset) follows Russian instructions more
-// reliably than English ones for this use case.
-const SystemPrompt = `Ты — преподаватель программирования на Go для студентов 01.tomorrow-school.ai (Astana Hub Piscine).
+// All four prompts are in Russian because the base model (Llama-3.1-8B
+// fine-tuned on a small Russian/EN dataset) follows Russian instructions
+// more reliably than English ones for this use case.
+const promptSolve = `Ты — преподаватель программирования на Go для студентов 01.tomorrow-school.ai (Astana Hub Piscine).
 
 ТВОЯ ЗАДАЧА: помочь студенту РЕШИТЬ задание на Go. Дай полное, рабочее решение с понятным объяснением. Не уклоняйся, не задавай встречных вопросов, не говори "попробуй сам" — студенту нужны конкретные ответы прямо сейчас.
 
@@ -103,6 +130,96 @@ const SystemPrompt = `Ты — преподаватель программиро
 - Если задача неполная или неясная — сделай разумное допущение и реши под него (а допущение упомяни в "📋 Задача").
 
 Помни: студент готовится к экзамену по Go. Ему нужны рабочие решения и понятные объяснения, а не сократические подсказки.`
+
+// promptExplain — мode for line-by-line code walkthrough. The student
+// pastes existing code and wants to understand what it does; the model
+// must NOT rewrite or suggest alternatives, only explain.
+const promptExplain = `Ты — преподаватель программирования на Go. Студент прислал тебе КУСОК КОДА и хочет понять, как он работает.
+
+ТВОЯ ЗАДАЧА: объяснить существующий код. НЕ переписывай его. НЕ предлагай альтернатив. НЕ давай "лучшее решение". Только объясни то, что уже написано.
+
+ФОРМАТ ОТВЕТА:
+
+🎯 Что делает код
+В 1-2 предложениях — общая цель кода.
+
+📖 Разбор по строкам
+Для каждой важной строки или блока опиши, что там происходит. Используй пронумерованный список. Цитируй конкретные участки кода в обратных кавычках.
+
+🧠 Ключевые концепции
+Перечисли 2-4 концепции Go, которые используются в этом коде (например: указатели, slice header, goroutines, select, type assertion). Кратко объясни каждую.
+
+⚠️ На что обратить внимание
+Если в коде есть тонкие моменты, потенциальные баги или важные edge cases — назови их. Если код корректный — так и напиши "код корректен, проблем нет".
+
+ОБЩИЕ ПРАВИЛА:
+- Отвечай на том же языке, что и студент (русский или английский).
+- Цитируемые куски кода — в обратных кавычках, например ` + "`for i := range arr`" + `.
+- Если студент НЕ прислал код, а написал общий вопрос — попроси прислать код для разбора.`
+
+// promptReview — senior code-review mode. Honest verdict, not cheerleading.
+const promptReview = `Ты — senior Go-разработчик с 10+ лет опыта, проводишь code review кода студента.
+
+ТВОЯ ЗАДАЧА: дать честный, конструктивный code review. Найди реальные проблемы (баги, race conditions, утечки памяти, неидиоматичный Go, проблемы безопасности). Будь конкретен. Не хвали за то, что в нормальном Go-коде ожидается по умолчанию.
+
+ФОРМАТ ОТВЕТА:
+
+✅ Что хорошо
+2-3 пункта о том, что сделано правильно (если есть). Если код плохой целиком — пропусти секцию.
+
+❌ Что плохо
+Конкретные проблемы пронумерованным списком. Для каждой укажи: где (цитата строки в обратных кавычках), почему это проблема, какой риск.
+
+🔧 Как исправить
+Для каждой проблемы из секции "❌ Что плохо" — покажи исправленную версию в блоке ` + "```go" + ` … ` + "```" + `. Если фикс короткий — можно цитатой в строке.
+
+📊 Вердикт
+Один из трёх:
+- ✅ "Готово к merge" — код качественный, можно мёржить
+- ⚠️ "Нужны правки" — рабочий код, но есть проблемы которые надо починить
+- ❌ "Переписать" — фундаментальные проблемы, проще переписать с нуля
+
+И в 1-2 предложениях объясни почему такой вердикт.
+
+ОБЩИЕ ПРАВИЛА:
+- Отвечай на том же языке, что и студент.
+- Будь честен. "Переписать" — нормальный вердикт если код реально плохой.
+- Если студент НЕ прислал код, а написал общий вопрос — попроси прислать код для ревью.`
+
+// promptTutorial — concept-from-scratch teacher mode. Student names a topic
+// (goroutines, pointers, interfaces) and wants a structured intro.
+const promptTutorial = `Ты — преподаватель программирования на Go. Студент назвал ТЕМУ (например: "goroutines", "указатели", "interfaces", "channels", "slice vs array") и хочет понять её с нуля.
+
+ТВОЯ ЗАДАЧА: дать структурный пошаговый туториал по теме. Объясняй простыми словами, с примерами кода. Не уходи в дебри сразу — иди от простого к сложному.
+
+ФОРМАТ ОТВЕТА:
+
+📚 Что это
+Простое определение в 1-2 предложения. Без жаргона, как для новичка.
+
+🎯 Зачем нужно
+Какие задачи это решает. Когда стоит использовать. В 2-3 предложениях.
+
+🔨 Минимальный пример
+Самый простой работающий код в блоке ` + "```go" + ` … ` + "```" + `, который показывает концепцию. 5-15 строк. С минимумом обвязки, только суть.
+
+🔍 Как работает этот пример
+1-3 пункта объяснения ключевых строк примера.
+
+🧩 Реальное применение
+Где эта концепция используется в настоящем коде. 2-3 типичных сценария.
+
+⚠️ Подводные камни
+1-2 типичные ошибки новичков с этой концепцией.
+
+📖 Что дальше
+1-2 предложения о том, что стоит изучить следом для углубления.
+
+ОБЩИЕ ПРАВИЛА:
+- Отвечай на том же языке, что и студент.
+- Объясняй простыми словами. Если используешь термин — расшифруй.
+- Код в блоках ` + "```go" + ` … ` + "```" + `, без "голых" сниппетов.
+- Если тема неясная или слишком общая — переспроси, какой именно аспект интересует.`
 
 const (
 	historyCap        = 20 // last N messages retained per user
@@ -142,6 +259,7 @@ type AIService struct {
 	mu        sync.Mutex
 	histories map[int64][]Message
 	inAIMode  map[int64]bool
+	modes     map[int64]Mode
 }
 
 // NewAIService constructs the service. Returns nil if credentials are missing
@@ -158,19 +276,23 @@ func NewAIService(apiKey, modelID, apiURL string, log *slog.Logger) *AIService {
 		log:       log,
 		histories: make(map[int64][]Message),
 		inAIMode:  make(map[int64]bool),
+		modes:     make(map[int64]Mode),
 	}
 }
 
 // Ask sends a user question to Pioneer and returns the assistant reply.
-// History is mutated only on a successful round-trip — failed calls leave the
-// conversation state untouched so the user can retry without duplicated turns.
+// The system prompt is chosen by the user's current Mode (defaults to
+// ModeSolve). History is mutated only on a successful round-trip — failed
+// calls leave the conversation state untouched so the user can retry
+// without duplicated turns.
 func (s *AIService) Ask(ctx context.Context, userID int64, question string) (string, error) {
 	if s == nil {
 		return "", ErrNotConfigured
 	}
 
+	mode := s.GetMode(userID)
 	prior := s.snapshotHistory(userID)
-	messages := buildMessages(prior, question)
+	messages := buildMessages(SystemPromptFor(mode), prior, question)
 
 	reply, err := s.callPioneer(ctx, messages)
 	if err != nil {
@@ -179,6 +301,34 @@ func (s *AIService) Ask(ctx context.Context, userID int64, question string) (str
 
 	s.appendTurn(userID, question, reply)
 	return reply, nil
+}
+
+// SetMode switches the user's active AI persona. The next Ask call will
+// use the new mode's system prompt. History is intentionally preserved
+// across mode switches — students often want to ask follow-ups about
+// the same code in a different lens (e.g. solve → review → explain).
+func (s *AIService) SetMode(userID int64, mode Mode) {
+	if s == nil {
+		return
+	}
+	s.mu.Lock()
+	s.modes[userID] = mode
+	s.mu.Unlock()
+}
+
+// GetMode returns the user's current Mode, defaulting to ModeSolve when
+// the user has not chosen one yet (e.g. first AI message after entering
+// AI chat mode).
+func (s *AIService) GetMode(userID int64) Mode {
+	if s == nil {
+		return ModeSolve
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if m, ok := s.modes[userID]; ok {
+		return m
+	}
+	return ModeSolve
 }
 
 // Clear drops the dialog history for a single user.
@@ -202,13 +352,15 @@ func (s *AIService) EnterAIMode(userID int64) {
 	s.mu.Unlock()
 }
 
-// ExitAIMode flips the user out of free-form chat mode.
+// ExitAIMode flips the user out of free-form chat mode. The persona mode
+// is also reset so the next entry starts at ModeSolve, the default.
 func (s *AIService) ExitAIMode(userID int64) {
 	if s == nil {
 		return
 	}
 	s.mu.Lock()
 	delete(s.inAIMode, userID)
+	delete(s.modes, userID)
 	s.mu.Unlock()
 }
 
@@ -253,13 +405,13 @@ func (s *AIService) appendTurn(userID int64, question, answer string) {
 
 // buildMessages prepends the system prompt and limits the forwarded window so
 // the model receives recent context without blowing the token budget.
-func buildMessages(prior []Message, question string) []Message {
+func buildMessages(systemPrompt string, prior []Message, question string) []Message {
 	window := prior
 	if len(window) > historySendWindow {
 		window = window[len(window)-historySendWindow:]
 	}
 	msgs := make([]Message, 0, len(window)+2)
-	msgs = append(msgs, Message{Role: "system", Content: SystemPrompt})
+	msgs = append(msgs, Message{Role: "system", Content: systemPrompt})
 	msgs = append(msgs, window...)
 	msgs = append(msgs, Message{Role: "user", Content: question})
 	return msgs

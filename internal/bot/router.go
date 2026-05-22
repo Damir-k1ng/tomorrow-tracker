@@ -7,6 +7,7 @@ import (
 
 	"github.com/damirkabdulla/tomorrow-tracker/internal/handlers"
 	"github.com/damirkabdulla/tomorrow-tracker/internal/menu"
+	"github.com/damirkabdulla/tomorrow-tracker/internal/services"
 )
 
 // Router maps incoming Telegram updates to handler functions. Keeping the
@@ -70,6 +71,14 @@ func (r *Router) Dispatch(ctx context.Context, update tgbotapi.Update) error {
 		return r.h.ExitAIMode(ctx, msg)
 	case menu.BtnClearAI:
 		return r.h.ClearAI(ctx, msg)
+	case menu.BtnModeSolve:
+		return r.h.SwitchMode(ctx, msg, services.ModeSolve)
+	case menu.BtnModeExplain:
+		return r.h.SwitchMode(ctx, msg, services.ModeExplain)
+	case menu.BtnModeReview:
+		return r.h.SwitchMode(ctx, msg, services.ModeReview)
+	case menu.BtnModeTutorial:
+		return r.h.SwitchMode(ctx, msg, services.ModeTutorial)
 	}
 
 	// In free-form AI chat mode, any non-button text is forwarded to the
