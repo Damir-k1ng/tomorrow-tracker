@@ -11,7 +11,9 @@ func init() {
 	Exercises = append(Exercises, extraExercises...)
 }
 
-// extraExercises holds 100 Piscine tasks parsed from zone01-Piscine.
+// extraExercises holds the long-tail Piscine tasks (~100 auto-parsed from
+// zone01-Piscine + a handful of hand-authored entries appended for tasks
+// the parser missed, like QuadA–E).
 var extraExercises = []Exercise{
 	{
 		Name:        "abort",
@@ -4306,5 +4308,190 @@ package like we did in cat.go also made the code longer.
 */`,
 		Description: "Решение упражнения Ztail из Piscine 01edu. Полный код в секции '✅ Решение'.",
 		Concepts:    []string{"ztail"},
+	},
+	{
+		Name:        "quada",
+		DisplayName: "QuadA",
+		Signature:   "func QuadA(x, y int)",
+		Solution: `package piscine
+
+import "github.com/01-edu/z01"
+
+func QuadA(x, y int) {
+	if x <= 0 || y <= 0 {
+		return
+	}
+	for i := 0; i < y; i++ {
+		for j := 0; j < x; j++ {
+			switch {
+			case i == 0 && j == 0:
+				z01.PrintRune('o')
+			case i == 0 && j == x-1:
+				z01.PrintRune('o')
+			case i == y-1 && j == 0:
+				z01.PrintRune('o')
+			case i == y-1 && j == x-1:
+				z01.PrintRune('o')
+			case i == 0 || i == y-1:
+				z01.PrintRune('-')
+			case j == 0 || j == x-1:
+				z01.PrintRune('|')
+			default:
+				z01.PrintRune(' ')
+			}
+		}
+		z01.PrintRune('\n')
+	}
+}
+`,
+		Description: "Рисует прямоугольник шириной x и высотой y: углы 'o', горизонтальные стороны '-', вертикальные '|', внутри пробелы. Если x или y <= 0 — ничего не выводит. Использует только z01.PrintRune, fmt запрещён.",
+		Concepts:    []string{"quada", "прямоугольник", "rectangle", "квад", "quad", "рамка"},
+	},
+	{
+		Name:        "quadb",
+		DisplayName: "QuadB",
+		Signature:   "func QuadB(x, y int)",
+		Solution: `package piscine
+
+import "github.com/01-edu/z01"
+
+func QuadB(x, y int) {
+	if x <= 0 || y <= 0 {
+		return
+	}
+	for i := 0; i < y; i++ {
+		for j := 0; j < x; j++ {
+			switch {
+			case i == 0 && j == 0:
+				z01.PrintRune('/')
+			case i == 0 && j == x-1:
+				z01.PrintRune('\\')
+			case i == y-1 && j == 0:
+				z01.PrintRune('\\')
+			case i == y-1 && j == x-1:
+				z01.PrintRune('/')
+			case i == 0 || i == y-1 || j == 0 || j == x-1:
+				z01.PrintRune('*')
+			default:
+				z01.PrintRune(' ')
+			}
+		}
+		z01.PrintRune('\n')
+	}
+}
+`,
+		Description: "Рисует прямоугольник шириной x и высотой y: top-left '/', top-right '\\', bottom-left '\\', bottom-right '/', стороны '*', внутри пробелы. Если x или y <= 0 — ничего не выводит. Только z01.PrintRune.",
+		Concepts:    []string{"quadb", "прямоугольник", "rectangle", "квад", "quad", "рамка"},
+	},
+	{
+		Name:        "quadc",
+		DisplayName: "QuadC",
+		Signature:   "func QuadC(x, y int)",
+		Solution: `package piscine
+
+import "github.com/01-edu/z01"
+
+func QuadC(x, y int) {
+	if x <= 0 || y <= 0 {
+		return
+	}
+	for i := 0; i < y; i++ {
+		for j := 0; j < x; j++ {
+			switch {
+			case i == 0 && j == 0:
+				z01.PrintRune('A')
+			case i == 0 && j == x-1:
+				z01.PrintRune('A')
+			case i == y-1 && j == 0:
+				z01.PrintRune('C')
+			case i == y-1 && j == x-1:
+				z01.PrintRune('C')
+			case i == 0 || i == y-1 || j == 0 || j == x-1:
+				z01.PrintRune('B')
+			default:
+				z01.PrintRune(' ')
+			}
+		}
+		z01.PrintRune('\n')
+	}
+}
+`,
+		Description: "Рисует прямоугольник шириной x и высотой y: верхние углы 'A', нижние углы 'C', стороны 'B', внутри пробелы. Если x или y <= 0 — ничего не выводит. Только z01.PrintRune.",
+		Concepts:    []string{"quadc", "прямоугольник", "rectangle", "квад", "quad", "рамка"},
+	},
+	{
+		Name:        "quadd",
+		DisplayName: "QuadD",
+		Signature:   "func QuadD(x, y int)",
+		Solution: `package piscine
+
+import "github.com/01-edu/z01"
+
+func QuadD(x, y int) {
+	if x <= 0 || y <= 0 {
+		return
+	}
+	for i := 0; i < y; i++ {
+		for j := 0; j < x; j++ {
+			switch {
+			case i == 0 && j == 0:
+				z01.PrintRune('A')
+			case i == 0 && j == x-1:
+				z01.PrintRune('C')
+			case i == y-1 && j == 0:
+				z01.PrintRune('A')
+			case i == y-1 && j == x-1:
+				z01.PrintRune('C')
+			case i == 0 || i == y-1 || j == 0 || j == x-1:
+				z01.PrintRune('B')
+			default:
+				z01.PrintRune(' ')
+			}
+		}
+		z01.PrintRune('\n')
+	}
+}
+`,
+		Description: "Рисует прямоугольник шириной x и высотой y: левые углы 'A', правые углы 'C', стороны 'B', внутри пробелы. Если x или y <= 0 — ничего не выводит. Только z01.PrintRune.",
+		Concepts:    []string{"quadd", "прямоугольник", "rectangle", "квад", "quad", "рамка"},
+	},
+	{
+		Name:        "quade",
+		DisplayName: "QuadE",
+		Signature:   "func QuadE(x, y int)",
+		Solution: `package piscine
+
+import "github.com/01-edu/z01"
+
+func QuadE(x, y int) {
+	if x <= 0 || y <= 0 {
+		return
+	}
+	for i := 0; i < y; i++ {
+		for j := 0; j < x; j++ {
+			// Order matters: top-row checks come first so that when y==1
+			// the row is treated as the top edge ("ABBBC"), not as a mix
+			// of top and bottom corners which would mis-resolve to "ABBBA".
+			switch {
+			case i == 0 && j == 0:
+				z01.PrintRune('A')
+			case i == 0 && j == x-1:
+				z01.PrintRune('C')
+			case i == y-1 && j == 0:
+				z01.PrintRune('C')
+			case i == y-1 && j == x-1:
+				z01.PrintRune('A')
+			case i == 0 || i == y-1 || j == 0 || j == x-1:
+				z01.PrintRune('B')
+			default:
+				z01.PrintRune(' ')
+			}
+		}
+		z01.PrintRune('\n')
+	}
+}
+`,
+		Description: "Рисует прямоугольник шириной x и высотой y: диагональные углы (top-left, bottom-right) = 'A', другие углы (top-right, bottom-left) = 'C', стороны 'B', внутри пробелы. Если x или y <= 0 — ничего не выводит. Только z01.PrintRune.",
+		Concepts:    []string{"quade", "прямоугольник", "rectangle", "квад", "quad", "рамка"},
 	},
 }
