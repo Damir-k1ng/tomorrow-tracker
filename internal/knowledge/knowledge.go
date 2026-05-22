@@ -38,6 +38,20 @@ type Exercise struct {
 	// Concepts are search keywords (Russian + English) that should pull
 	// this exercise to the top when mentioned in a free-form question.
 	Concepts []string
+	// Samples are canonical input → expected-output pairs taken from the
+	// subject screenshots. Used for tasks where the grader does byte-level
+	// output comparison (visual ASCII-art like QuadA–E, Rectangle, Tetris)
+	// — the AI prompt instructs the model to QUOTE these verbatim in the
+	// "🧪 Edge cases" section instead of fabricating its own examples.
+	// Empty string means "no canonical samples available; the model may
+	// generate its own". Format is freeform but typically:
+	//
+	//   piscine.QuadA(5,3) →
+	//   o---o
+	//   |   |
+	//   o---o
+	//
+	Samples string
 }
 
 // Kind tags a Match with the source registry the hit came from. The AI

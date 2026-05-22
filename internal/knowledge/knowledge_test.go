@@ -131,30 +131,48 @@ func TestFindByName(t *testing.T) {
 func TestQuadSolutionsInvariants(t *testing.T) {
 	t.Parallel()
 	cases := []struct {
-		name      string
-		mustHave  []string // substrings that MUST appear in the solution source
-		mustMiss  []string // substrings that MUST NOT appear
-		runeChars []rune   // PrintRune literals expected in the body
+		name        string
+		runeChars   []rune   // PrintRune literals expected in the body
+		sampleLines []string // byte-exact lines that MUST appear in Samples
 	}{
 		{
 			name:      "quada",
 			runeChars: []rune{'o', '-', '|', ' ', '\n'},
+			sampleLines: []string{
+				"o---o",
+				"|   |",
+			},
 		},
 		{
 			name:      "quadb",
 			runeChars: []rune{'/', '\\', '*', ' ', '\n'},
+			sampleLines: []string{
+				`/***\`,
+				`\***/`,
+			},
 		},
 		{
 			name:      "quadc",
 			runeChars: []rune{'A', 'B', 'C', ' ', '\n'},
+			sampleLines: []string{
+				"ABBBA",
+				"CBBBC",
+			},
 		},
 		{
 			name:      "quadd",
 			runeChars: []rune{'A', 'B', 'C', ' ', '\n'},
+			sampleLines: []string{
+				"ABBBC",
+			},
 		},
 		{
 			name:      "quade",
 			runeChars: []rune{'A', 'B', 'C', ' ', '\n'},
+			sampleLines: []string{
+				"ABBBC",
+				"CBBBA",
+			},
 		},
 	}
 
@@ -193,6 +211,18 @@ func TestQuadSolutionsInvariants(t *testing.T) {
 				lit := runeLiteral(r)
 				if !strings.Contains(src, "z01.PrintRune("+lit+")") {
 					t.Errorf("%s: solution must call z01.PrintRune(%s) for rune %q", tc.name, lit, r)
+				}
+			}
+
+			// Samples are mandatory for visual ASCII tasks — without them
+			// the model fabricates plausible-but-wrong outputs in the
+			// "🧪 Edge cases" section (real bug observed in production).
+			if ex.Samples == "" {
+				t.Fatalf("%s: Samples must be populated (byte-exact subject outputs) to prevent hallucinated edge cases", tc.name)
+			}
+			for _, line := range tc.sampleLines {
+				if !strings.Contains(ex.Samples, line) {
+					t.Errorf("%s: Samples missing canonical line %q\nGot Samples:\n%s", tc.name, line, ex.Samples)
 				}
 			}
 		})

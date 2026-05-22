@@ -4346,6 +4346,23 @@ func QuadA(x, y int) {
 `,
 		Description: "Рисует прямоугольник шириной x и высотой y: углы 'o', горизонтальные стороны '-', вертикальные '|', внутри пробелы. Если x или y <= 0 — ничего не выводит. Использует только z01.PrintRune, fmt запрещён.",
 		Concepts:    []string{"quada", "прямоугольник", "rectangle", "квад", "quad", "рамка"},
+		Samples: `piscine.QuadA(5,3) →
+o---o
+|   |
+o---o
+
+piscine.QuadA(5,1) →
+o---o
+
+piscine.QuadA(1,1) →
+o
+
+piscine.QuadA(1,5) →
+o
+|
+|
+|
+o`,
 	},
 	{
 		Name:        "quadb",
@@ -4382,6 +4399,23 @@ func QuadB(x, y int) {
 `,
 		Description: "Рисует прямоугольник шириной x и высотой y: top-left '/', top-right '\\', bottom-left '\\', bottom-right '/', стороны '*', внутри пробелы. Если x или y <= 0 — ничего не выводит. Только z01.PrintRune.",
 		Concepts:    []string{"quadb", "прямоугольник", "rectangle", "квад", "quad", "рамка"},
+		Samples: `piscine.QuadB(5,3) →
+/***\
+*   *
+\***/
+
+piscine.QuadB(5,1) →
+/***\
+
+piscine.QuadB(1,1) →
+/
+
+piscine.QuadB(1,5) →
+/
+*
+*
+*
+\`,
 	},
 	{
 		Name:        "quadc",
@@ -4418,6 +4452,23 @@ func QuadC(x, y int) {
 `,
 		Description: "Рисует прямоугольник шириной x и высотой y: верхние углы 'A', нижние углы 'C', стороны 'B', внутри пробелы. Если x или y <= 0 — ничего не выводит. Только z01.PrintRune.",
 		Concepts:    []string{"quadc", "прямоугольник", "rectangle", "квад", "quad", "рамка"},
+		Samples: `piscine.QuadC(5,3) →
+ABBBA
+B   B
+CBBBC
+
+piscine.QuadC(5,1) →
+ABBBA
+
+piscine.QuadC(1,1) →
+A
+
+piscine.QuadC(1,5) →
+A
+B
+B
+B
+C`,
 	},
 	{
 		Name:        "quadd",
@@ -4454,6 +4505,23 @@ func QuadD(x, y int) {
 `,
 		Description: "Рисует прямоугольник шириной x и высотой y: левые углы 'A', правые углы 'C', стороны 'B', внутри пробелы. Если x или y <= 0 — ничего не выводит. Только z01.PrintRune.",
 		Concepts:    []string{"quadd", "прямоугольник", "rectangle", "квад", "quad", "рамка"},
+		Samples: `piscine.QuadD(5,3) →
+ABBBC
+B   B
+ABBBC
+
+piscine.QuadD(5,1) →
+ABBBC
+
+piscine.QuadD(1,1) →
+A
+
+piscine.QuadD(1,5) →
+A
+B
+B
+B
+A`,
 	},
 	{
 		Name:        "quade",
@@ -4493,5 +4561,22 @@ func QuadE(x, y int) {
 `,
 		Description: "Рисует прямоугольник шириной x и высотой y: диагональные углы (top-left, bottom-right) = 'A', другие углы (top-right, bottom-left) = 'C', стороны 'B', внутри пробелы. Если x или y <= 0 — ничего не выводит. Только z01.PrintRune.",
 		Concepts:    []string{"quade", "прямоугольник", "rectangle", "квад", "quad", "рамка"},
+		Samples: `piscine.QuadE(5,3) →
+ABBBC
+B   B
+CBBBA
+
+piscine.QuadE(5,1) →
+ABBBC
+
+piscine.QuadE(1,1) →
+A
+
+piscine.QuadE(1,5) →
+A
+B
+B
+B
+C`,
 	},
 }
