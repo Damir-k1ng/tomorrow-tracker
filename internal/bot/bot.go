@@ -170,7 +170,7 @@ func (b *Bot) setMenuButton() {
 	payload, err := json.Marshal(map[string]any{
 		"menu_button": map[string]any{
 			"type":    "web_app",
-			"text":    "Открыть приложение",
+			"text":    "Сайт",
 			"web_app": map[string]any{"url": b.miniAppURL},
 		},
 	})

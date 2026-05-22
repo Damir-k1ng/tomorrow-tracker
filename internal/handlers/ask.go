@@ -16,15 +16,8 @@ import (
 // dropped by the API.
 const telegramMessageLimit = 4096
 
-const aiModeWelcome = `🤖 <b>AI-ментор готов</b>
-
-Пришли мне название задачи — я её решу и объясню пошагово.
-
-Например: <code>printnbr.go</code>, <code>pointone</code>, <code>brackets</code>, <code>rpncalc</code>, <code>fibonacci</code>
-
-Можно по-русски или по-английски.
-
-🗑 — очистить диалог · 🚪 — выйти`
+const aiModeWelcome = `Привет! Я — <b>Principal Go Engineer</b> и senior examiner для 01 Edu.
+Меня создал Damir, чтобы я помогал тебе эффективнее обучаться.`
 
 const aiDisabled = "🤖 AI-ментор временно недоступен. Попробуй позже или используй кнопки меню."
 
