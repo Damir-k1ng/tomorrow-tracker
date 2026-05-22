@@ -16,8 +16,11 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
+
+	"github.com/damirkabdulla/tomorrow-tracker/internal/knowledge"
 )
 
 // userAgent is sent on every Pioneer call. Some CDNs (CloudFront in particular)
@@ -285,14 +288,34 @@ func NewAIService(apiKey, modelID, apiURL string, log *slog.Logger) *AIService {
 // ModeSolve). History is mutated only on a successful round-trip — failed
 // calls leave the conversation state untouched so the user can retry
 // without duplicated turns.
+//
+// Before each call, knowledge.Search runs against the question to find
+// Piscine exercises the student is most likely asking about. When a match
+// is found, the canonical reference solution is appended to the system
+// prompt so the model uses it as ground truth instead of hallucinating an
+// answer. No match → no reference, the model answers from its own weights.
 func (s *AIService) Ask(ctx context.Context, userID int64, question string) (string, error) {
 	if s == nil {
 		return "", ErrNotConfigured
 	}
 
 	mode := s.GetMode(userID)
+	systemPrompt := SystemPromptFor(mode)
+
+	if matches := knowledge.Search(question, 2); len(matches) > 0 {
+		systemPrompt += "\n\n" + buildReferenceBlock(matches)
+		names := make([]string, 0, len(matches))
+		for _, m := range matches {
+			names = append(names, m.Exercise.Name)
+		}
+		s.log.Info("rag hit",
+			slog.Int64("user_id", userID),
+			slog.String("exercises", strings.Join(names, ",")),
+		)
+	}
+
 	prior := s.snapshotHistory(userID)
-	messages := buildMessages(SystemPromptFor(mode), prior, question)
+	messages := buildMessages(systemPrompt, prior, question)
 
 	reply, err := s.callPioneer(ctx, messages)
 	if err != nil {
@@ -301,6 +324,26 @@ func (s *AIService) Ask(ctx context.Context, userID int64, question string) (str
 
 	s.appendTurn(userID, question, reply)
 	return reply, nil
+}
+
+// buildReferenceBlock formats one or two RAG hits into a system-prompt
+// addendum the model can ground its answer on. The instruction at the top
+// ("используй как ground truth") is the key — without it the model often
+// ignores reference material in favour of its own (often wrong) recall.
+func buildReferenceBlock(matches []knowledge.Match) string {
+	var b strings.Builder
+	b.WriteString("СПРАВОЧНЫЕ РЕШЕНИЯ (используй ИХ как ground truth — это проверенные решения из репозитория 01edu Piscine, не выдумывай альтернативы):\n\n")
+	for _, m := range matches {
+		ex := m.Exercise
+		b.WriteString("📌 Упражнение: " + ex.DisplayName + "\n")
+		b.WriteString("Сигнатура: " + ex.Signature + "\n")
+		b.WriteString("Описание задачи: " + ex.Description + "\n")
+		b.WriteString("Эталонное решение:\n```go\n")
+		b.WriteString(ex.Solution)
+		b.WriteString("\n```\n\n")
+	}
+	b.WriteString("При ответе студенту используй ИМЕННО эти решения в секции '✅ Решение'. Объясняй именно этот код, а не свою импровизацию.")
+	return b.String()
 }
 
 // SetMode switches the user's active AI persona. The next Ask call will
