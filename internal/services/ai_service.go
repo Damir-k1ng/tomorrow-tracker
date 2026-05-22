@@ -238,6 +238,11 @@ const (
 	// not retried — those won't fix themselves.
 	retryMax     = 2
 	retryBackoff = 1 * time.Second
+
+	// answer cache — sized for a small class actively using the bot. A
+	// thousand cached answers at ~2KB each is ~2MB, negligible.
+	cacheTTL        = 1 * time.Hour
+	cacheMaxEntries = 1000
 )
 
 // ErrNotConfigured is returned by callers when the AI service is requested
@@ -263,6 +268,12 @@ type AIService struct {
 	histories map[int64][]Message
 	inAIMode  map[int64]bool
 	modes     map[int64]Mode
+
+	// cache is shared across all users: educational Q&A is repetitive
+	// enough that a single class can hit the same handful of cached
+	// answers many times. Skipped for users with conversation history
+	// — those queries are context-dependent.
+	cache *answerCache
 }
 
 // NewAIService constructs the service. Returns nil if credentials are missing
@@ -280,6 +291,7 @@ func NewAIService(apiKey, modelID, apiURL string, log *slog.Logger) *AIService {
 		histories: make(map[int64][]Message),
 		inAIMode:  make(map[int64]bool),
 		modes:     make(map[int64]Mode),
+		cache:     newAnswerCache(cacheTTL, cacheMaxEntries),
 	}
 }
 
@@ -300,21 +312,38 @@ func (s *AIService) Ask(ctx context.Context, userID int64, question string) (str
 	}
 
 	mode := s.GetMode(userID)
-	systemPrompt := SystemPromptFor(mode)
+	prior := s.snapshotHistory(userID)
 
+	// Cache lookup happens only for first-turn questions: when the user
+	// has prior history, the same question text can mean very different
+	// things ("ещё пример", "а почему?") so a hash on the question alone
+	// would return a misleading answer.
+	var cacheK string
+	if len(prior) == 0 {
+		cacheK = cacheKey(mode, strings.TrimSpace(question))
+		if cached, ok := s.cache.Get(cacheK); ok {
+			s.log.Info("ai cache hit",
+				slog.Int64("user_id", userID),
+				slog.String("mode", string(mode)),
+			)
+			s.appendTurn(userID, question, cached)
+			return cached, nil
+		}
+	}
+
+	systemPrompt := SystemPromptFor(mode)
 	if matches := knowledge.Search(question, 2); len(matches) > 0 {
 		systemPrompt += "\n\n" + buildReferenceBlock(matches)
 		names := make([]string, 0, len(matches))
 		for _, m := range matches {
-			names = append(names, m.Exercise.Name)
+			names = append(names, string(m.Kind)+":"+m.Name())
 		}
 		s.log.Info("rag hit",
 			slog.Int64("user_id", userID),
-			slog.String("exercises", strings.Join(names, ",")),
+			slog.String("matches", strings.Join(names, ",")),
 		)
 	}
 
-	prior := s.snapshotHistory(userID)
 	messages := buildMessages(systemPrompt, prior, question)
 
 	reply, err := s.callPioneer(ctx, messages)
@@ -322,27 +351,45 @@ func (s *AIService) Ask(ctx context.Context, userID int64, question string) (str
 		return "", fmt.Errorf("pioneer call: %w", err)
 	}
 
+	if cacheK != "" {
+		s.cache.Set(cacheK, reply)
+	}
 	s.appendTurn(userID, question, reply)
 	return reply, nil
 }
 
-// buildReferenceBlock formats one or two RAG hits into a system-prompt
-// addendum the model can ground its answer on. The instruction at the top
-// ("используй как ground truth") is the key — without it the model often
-// ignores reference material in favour of its own (often wrong) recall.
+// buildReferenceBlock formats RAG hits into a system-prompt addendum the
+// model can ground its answer on. The instruction at the top ("используй
+// как ground truth") is the key — without it the model often ignores
+// reference material in favour of its own (often wrong) recall.
+//
+// Exercises and concepts use different headers so the model knows whether
+// it's looking at a canonical Piscine answer (must reproduce verbatim in
+// the "✅ Решение" section) or a general Go feature explainer (use as
+// background when explaining something tangentially related).
 func buildReferenceBlock(matches []knowledge.Match) string {
 	var b strings.Builder
-	b.WriteString("СПРАВОЧНЫЕ РЕШЕНИЯ (используй ИХ как ground truth — это проверенные решения из репозитория 01edu Piscine, не выдумывай альтернативы):\n\n")
+	b.WriteString("СПРАВОЧНЫЙ МАТЕРИАЛ (используй как ground truth — это проверенные решения и объяснения, не выдумывай альтернативы):\n\n")
 	for _, m := range matches {
-		ex := m.Exercise
-		b.WriteString("📌 Упражнение: " + ex.DisplayName + "\n")
-		b.WriteString("Сигнатура: " + ex.Signature + "\n")
-		b.WriteString("Описание задачи: " + ex.Description + "\n")
-		b.WriteString("Эталонное решение:\n```go\n")
-		b.WriteString(ex.Solution)
-		b.WriteString("\n```\n\n")
+		switch m.Kind {
+		case knowledge.KindExercise:
+			ex := m.Exercise
+			b.WriteString("📌 Упражнение Piscine: " + ex.DisplayName + "\n")
+			b.WriteString("Сигнатура: " + ex.Signature + "\n")
+			b.WriteString("Описание задачи: " + ex.Description + "\n")
+			b.WriteString("Эталонное решение:\n```go\n")
+			b.WriteString(ex.Solution)
+			b.WriteString("\n```\n\n")
+		case knowledge.KindConcept:
+			c := m.Concept
+			b.WriteString("📚 Концепция Go: " + c.DisplayName + "\n")
+			b.WriteString("Описание: " + c.Description + "\n")
+			b.WriteString("Пример:\n```go\n")
+			b.WriteString(c.Example)
+			b.WriteString("\n```\n\n")
+		}
 	}
-	b.WriteString("При ответе студенту используй ИМЕННО эти решения в секции '✅ Решение'. Объясняй именно этот код, а не свою импровизацию.")
+	b.WriteString("Правило: если выше есть упражнение Piscine — используй его эталонное решение ВЕРБАТИМНО в секции '✅ Решение' своего ответа. Если только концепции — используй их как фундамент объяснения.")
 	return b.String()
 }
 

@@ -41,9 +41,9 @@ func TestSearch(t *testing.T) {
 			wantTopName: "isprime",
 		},
 		{
-			name:        "unrelated query returns nothing",
-			query:       "расскажи про погоду в москве",
-			wantNoHits:  true,
+			name:       "unrelated query returns nothing",
+			query:      "расскажи про погоду в москве",
+			wantNoHits: true,
 		},
 		{
 			name:       "empty query is safe",

@@ -40,29 +40,56 @@ type Exercise struct {
 	Concepts []string
 }
 
-// Match is a search result with the matched Exercise and a relevance score.
-// Higher score means stronger match — see scoring rules in Search.
+// Kind tags a Match with the source registry the hit came from. The AI
+// handler uses it to pick between "📌 Упражнение:" and "📚 Концепция Go:"
+// framing when rendering the reference block for the model.
+type Kind string
+
+const (
+	KindExercise Kind = "exercise"
+	KindConcept  Kind = "concept"
+)
+
+// Match is a search result with the matched item and a relevance score.
+// Exactly one of Exercise / Concept is non-nil — pick by Kind. Higher
+// Score means stronger match (scoring rules below in Search).
 type Match struct {
-	Exercise *Exercise
+	Kind     Kind
+	Exercise *Exercise // set when Kind == KindExercise
+	Concept  *Concept  // set when Kind == KindConcept
 	Score    int
 }
 
-// Search finds exercises relevant to the user's free-form question. The
-// caller is expected to pass at most a few sentences of natural language.
-// Returns at most maxResults matches, ordered by descending score. When
-// nothing scores above zero the result is nil — callers treat that as
-// "no relevant reference, skip RAG injection".
+// Name returns the canonical lowercase key of the matched item.
+func (m Match) Name() string {
+	if m.Exercise != nil {
+		return m.Exercise.Name
+	}
+	if m.Concept != nil {
+		return m.Concept.Name
+	}
+	return ""
+}
+
+// Search finds exercises and concepts relevant to the user's free-form
+// question. The caller is expected to pass at most a few sentences of
+// natural language. Returns at most maxResults matches, ordered by
+// descending score. When nothing scores above zero the result is nil —
+// callers treat that as "no relevant reference, skip RAG injection".
 //
 // Scoring is intentionally simple and stable:
 //   - +100 when the question contains the canonical lowercase name
-//     ("pointone", "ultimatedivmod") — these are unambiguous direct hits.
-//   - +50 when the question contains the DisplayName ("PointOne").
+//     ("pointone", "goroutines") — these are unambiguous direct hits.
+//   - +50 when the question contains the DisplayName ("PointOne",
+//     "Goroutines") and it differs from the canonical name.
 //   - +10 for each concept keyword found in the question.
 //   - +2 for each significant word from the description found in the
 //     question, capped at one credit per word.
 //
 // Stop-words like "что", "как", "и", "в" are ignored on the description
-// pass so that filler doesn't inflate matches.
+// pass so that filler doesn't inflate matches. Exercises and concepts
+// compete in the same ranking so a strong concept hit can outrank a
+// weak exercise hit and vice versa.
 func Search(question string, maxResults int) []Match {
 	if maxResults <= 0 {
 		maxResults = 3
@@ -77,12 +104,19 @@ func Search(question string, maxResults int) []Match {
 		qSet[w] = struct{}{}
 	}
 
-	matches := make([]Match, 0, len(Exercises))
+	matches := make([]Match, 0, len(Exercises)+len(Concepts))
 	for i := range Exercises {
 		ex := &Exercises[i]
-		score := scoreExercise(ex, q, qSet)
+		score := scoreEntry(ex.Name, ex.DisplayName, ex.Description, ex.Concepts, q, qSet)
 		if score > 0 {
-			matches = append(matches, Match{Exercise: ex, Score: score})
+			matches = append(matches, Match{Kind: KindExercise, Exercise: ex, Score: score})
+		}
+	}
+	for i := range Concepts {
+		c := &Concepts[i]
+		score := scoreEntry(c.Name, c.DisplayName, c.Description, c.Concepts, q, qSet)
+		if score > 0 {
+			matches = append(matches, Match{Kind: KindConcept, Concept: c, Score: score})
 		}
 	}
 	if len(matches) == 0 {
@@ -110,20 +144,24 @@ func FindByName(name string) *Exercise {
 	return nil
 }
 
-func scoreExercise(ex *Exercise, q string, qSet map[string]struct{}) int {
+// scoreEntry is the shared scoring function used for both exercises and
+// concepts. Pulled out of the per-type loop so both registries are ranked
+// by the exact same rules, which keeps the cross-type ordering predictable.
+func scoreEntry(name, displayName, description string, concepts []string, q string, qSet map[string]struct{}) int {
 	score := 0
-	if strings.Contains(q, ex.Name) {
+	if strings.Contains(q, name) {
 		score += 100
 	}
-	if strings.Contains(q, strings.ToLower(ex.DisplayName)) && ex.DisplayName != ex.Name {
+	displayLower := strings.ToLower(displayName)
+	if displayLower != name && strings.Contains(q, displayLower) {
 		score += 50
 	}
-	for _, c := range ex.Concepts {
+	for _, c := range concepts {
 		if strings.Contains(q, strings.ToLower(c)) {
 			score += 10
 		}
 	}
-	for _, w := range tokenize(strings.ToLower(ex.Description)) {
+	for _, w := range tokenize(strings.ToLower(description)) {
 		if len(w) < 4 || isStopWord(w) {
 			continue
 		}
