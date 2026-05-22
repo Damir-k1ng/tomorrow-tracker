@@ -26,6 +26,14 @@ var (
 // markdownToTelegramHTML converts the model's Markdown into the Telegram
 // HTML dialect. Order matters: extract fenced blocks → inline code → escape
 // HTML in the rest → inline bold/italic → splice back.
+//
+// Placeholders use the SOH control character (\x01) as a delimiter, plus
+// a base-26 (letter-only) index. Crucially they contain NO underscores or
+// asterisks: an earlier placeholder format like "\x00PLACEHOLDER_0\x00"
+// triggered the italic regex `_X_` to consume the underscore between
+// "PLACEHOLDER" and the digit, splicing two adjacent placeholders into
+// one mangled italic tag and leaving the text "PLACEHOLDER10" in the
+// final output where the inline-code substitution should have been.
 func markdownToTelegramHTML(s string) string {
 	if s == "" {
 		return s
@@ -38,7 +46,7 @@ func markdownToTelegramHTML(s string) string {
 	var holds []placeholder
 
 	stash := func(html string) string {
-		token := "\x00PLACEHOLDER_" + itoa(len(holds)) + "\x00"
+		token := "\x01MD" + indexToken(len(holds)) + "MD\x01"
 		holds = append(holds, placeholder{token: token, html: html})
 		return token
 	}
@@ -106,18 +114,21 @@ func escapeHTML(s string) string {
 	return b.String()
 }
 
-// itoa is a tiny strconv.Itoa replacement so this file has no extra imports.
-// Placeholder counts are always small positive integers.
-func itoa(n int) string {
+// indexToken renders a placeholder index using lowercase letters only —
+// no digits, no underscores, no asterisks — so neither the bold nor the
+// italic regex can find a markdown delimiter inside a placeholder. Index
+// 0 → "a", 26 → "ba", 27 → "bb", etc.
+func indexToken(n int) string {
+	if n < 0 {
+		n = 0
+	}
 	if n == 0 {
-		return "0"
+		return "a"
 	}
-	var buf [20]byte
-	i := len(buf)
+	var buf []byte
 	for n > 0 {
-		i--
-		buf[i] = byte('0' + n%10)
-		n /= 10
+		buf = append([]byte{byte('a' + n%26)}, buf...)
+		n /= 26
 	}
-	return string(buf[i:])
+	return string(buf)
 }
