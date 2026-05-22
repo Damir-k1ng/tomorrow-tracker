@@ -17,20 +17,14 @@ var extraExercises = []Exercise{
 		Name:        "abort",
 		DisplayName: "Abort",
 		Signature:   "func Abort(a, b, c, d, e int) int",
-		Solution: `package main
-
-import "fmt"
+		Solution: `package piscine
 
 func Abort(a, b, c, d, e int) int {
 	return (a+b+c+d+e)/5
 }
 
-func main() {
-	middle := Abort(2, 3, 8, 5, 7)
-	fmt.Println(middle)
-}
-
-// hackathon`,
+// hackathon
+`,
 		Description: "Возвращает медианное значение из 5 int — типа выбора 'центрального' значения.",
 		Concepts:    []string{"abort"},
 	},
@@ -38,9 +32,7 @@ func main() {
 		Name:        "addfront",
 		DisplayName: "AddFront",
 		Signature:   "func AddFront(s string, slice []string) []string",
-		Solution: `package main
-
-import "fmt"
+		Solution: `package piscine
 
 func AddFront(s string, slice []string) []string {
 	r := []string{s}
@@ -50,20 +42,15 @@ func AddFront(s string, slice []string) []string {
 	return r
 }
 
-func main() {
-	fmt.Println(AddFront("Hello", []string{"world"}))
-	fmt.Println(AddFront("Hello", []string{"world", "!"}))
-	fmt.Println(AddFront("Hello", []string{}))
-}
-
-// checkpoint`,
+// checkpoint
+`,
 		Description: "Добавляет ноду в начало linked list (head insertion).",
 		Concepts:    []string{"addfront"},
 	},
 	{
 		Name:        "addprimesum",
 		DisplayName: "AddPrimeSum",
-		Signature:   "// signature not detected",
+		Signature:   "program in package main",
 		Solution: `package main
 
 import "os"
@@ -128,7 +115,7 @@ func main() {
 	{
 		Name:        "alphamirror",
 		DisplayName: "AlphaMirror",
-		Signature:   "// signature not detected",
+		Signature:   "program in package main",
 		Solution: `package main
 
 import "os"
@@ -186,9 +173,7 @@ func main() {
 		Name:        "any",
 		DisplayName: "Any",
 		Signature:   "func Any(f func(string) bool, a []string) bool",
-		Solution: `package main
-
-import "fmt"
+		Solution: `package piscine
 
 func Any(f func(string) bool, a []string) bool {
 	for _, str := range a {
@@ -199,18 +184,8 @@ func Any(f func(string) bool, a []string) bool {
 	return false
 }
 
-func main() {
-	a1 := []string{"Hello", "how", "are", "you"}
-	a2 := []string{"This", "is", "4", "you"}
-
-	result1 := Any(IsNumeric, a1)
-	result2 := Any(IsNumeric, a2)
-
-	fmt.Println(result1)
-	fmt.Println(result2)
-}
-
-// quest 9`,
+// quest 9
+`,
 		Description: "Возвращает true если для хоть одного элемента предикат true.",
 		Concepts:    []string{"any", "higher-order function", "функция как параметр"},
 	},
@@ -218,20 +193,7 @@ func main() {
 		Name:        "atoi",
 		DisplayName: "Atoi",
 		Signature:   "func Atoi(s string) int",
-		Solution: `package main
-
-import "fmt"
-
-func main() {
-	fmt.Println(Atoi("12345"))
-	fmt.Println(Atoi("0000000012345"))
-	fmt.Println(Atoi("012 345"))
-	fmt.Println(Atoi("Hello World!"))
-	fmt.Println(Atoi("+1234"))
-	fmt.Println(Atoi("-1234"))
-	fmt.Println(Atoi("++1234"))
-	fmt.Println(Atoi("--1234"))
-}
+		Solution: `package piscine
 
 func Atoi(s string) int {
 	var n int
@@ -253,7 +215,8 @@ func Atoi(s string) int {
 	return n
 }
 
-// quest 3 / checkpoint`,
+// quest 3 / checkpoint
+`,
 		Description: "Конвертирует строку в int. Обрабатывает знаки + и -, возвращает 0 при невалидном вводе.",
 		Concepts:    []string{"atoi", "конвертация", "string to int"},
 	},
@@ -261,15 +224,7 @@ func Atoi(s string) int {
 		Name:        "basicatoi",
 		DisplayName: "BasicAtoi",
 		Signature:   "func BasicAtoi(s string) int",
-		Solution: `package main
-
-import "fmt"
-
-func main() {
-	fmt.Println(BasicAtoi("12345"))
-	fmt.Println(BasicAtoi("0000000012345"))
-	fmt.Println(BasicAtoi("000000"))
-}
+		Solution: `package piscine
 
 func BasicAtoi(s string) int {
 	var n int
@@ -286,7 +241,8 @@ int('0')=48 -----> int('1'-'0') = int(49-48) = int(1) = 1
 In Go, when you convert a character constant like '0'
 to an integer using int('0'), you're getting the ASCII
 (or Unicode code point) value of that character.
-The ASCII value of '0' is 48. So, int('0') will return 48.*/`,
+The ASCII value of '0' is 48. So, int('0') will return 48.*/
+`,
 		Description: "Простая версия Atoi: конвертирует строку цифр в int без обработки знаков и ошибок.",
 		Concepts:    []string{"basicatoi", "atoi", "конвертация", "string to int"},
 	},
@@ -294,16 +250,7 @@ The ASCII value of '0' is 48. So, int('0') will return 48.*/`,
 		Name:        "basicatoi2",
 		DisplayName: "BasicAtoi2",
 		Signature:   "func BasicAtoi2(s string) int",
-		Solution: `package main
-
-import "fmt"
-
-func main() {
-	fmt.Println(BasicAtoi2("12345"))
-	fmt.Println(BasicAtoi2("0000000012345"))
-	fmt.Println(BasicAtoi2("012 345"))
-	fmt.Println(BasicAtoi2("Hello World!"))
-}
+		Solution: `package piscine
 
 func BasicAtoi2(s string) int {
 	var n int
@@ -316,14 +263,15 @@ func BasicAtoi2(s string) int {
 	return n
 }
 
-// quest 3`,
+// quest 3
+`,
 		Description: "Версия Atoi с проверкой что в строке только цифры — возвращает 0 если есть нечисловые символы.",
 		Concepts:    []string{"basicatoi2", "atoi", "конвертация", "string to int"},
 	},
 	{
 		Name:        "bitwise",
 		DisplayName: "Bitwise",
-		Signature:   "// signature not detected",
+		Signature:   "program in package main",
 		Solution: `package main
 
 import (
@@ -517,7 +465,7 @@ result after inverting all bits of 11.
 	{
 		Name:        "boolean",
 		DisplayName: "Boolean",
-		Signature:   "// signature not detected",
+		Signature:   "program in package main",
 		Solution: `package main
 
 import (
@@ -560,9 +508,7 @@ func main() {
 		Name:        "capitalize2",
 		DisplayName: "Capitalize2",
 		Signature:   "func Capitalize(s string) string",
-		Solution: `package main
-
-import "fmt"
+		Solution: `package piscine
 
 func Capitalize(s string) string {
 	sliceS := []rune(s)
@@ -583,18 +529,15 @@ func Capitalize(s string) string {
 	return string(sliceS)
 }
 
-func main() {
-	fmt.Println(Capitalize("HEAARello! AA HowAA are you? How+are+things+AA4AAyou?"))
-}
-
-// quest 5`,
+// quest 5
+`,
 		Description: "Решение упражнения Capitalize2 из Piscine 01edu. Полный код в секции '✅ Решение'.",
 		Concepts:    []string{"capitalize2"},
 	},
 	{
 		Name:        "cat",
 		DisplayName: "Cat",
-		Signature:   "// signature not detected",
+		Signature:   "program in package main",
 		Solution: `package main
 
 import (
@@ -635,7 +578,7 @@ func main() {
 		Name:        "chunk",
 		DisplayName: "Chunk",
 		Signature:   "func Chunk(slice []int, size int)",
-		Solution: `package main
+		Solution: `package piscine
 
 import "fmt"
 
@@ -656,22 +599,15 @@ func Chunk(slice []int, size int) {
 	fmt.Println(result)
 }
 
-func main() {
-	Chunk([]int{}, 10)
-	Chunk([]int{0, 1, 2, 3, 4, 5, 6, 7}, 0)
-	Chunk([]int{0, 1, 2, 3, 4, 5, 6, 7}, 3)
-	Chunk([]int{0, 1, 2, 3, 4, 5, 6, 7}, 5)
-	Chunk([]int{0, 1, 2, 3, 4, 5, 6, 7}, 4)
-}
-
-// checkpoint // strchunks revisited`,
+// checkpoint // strchunks revisited
+`,
 		Description: "Разбивает слайс на чанки фиксированного размера. Возвращает [][]T.",
 		Concepts:    []string{"chunk"},
 	},
 	{
 		Name:        "cleanstr",
 		DisplayName: "CleanStr",
-		Signature:   "// signature not detected",
+		Signature:   "program in package main",
 		Solution: `package main
 
 import "os"
@@ -704,9 +640,7 @@ func main() {
 		Name:        "collatzcountdown",
 		DisplayName: "CollatzCountdown",
 		Signature:   "func CollatzCountdown(start int) int",
-		Solution: `package main
-
-import "fmt"
+		Solution: `package piscine
 
 func CollatzCountdown(start int) int {
 	if start <= 0 {
@@ -724,12 +658,8 @@ func CollatzCountdown(start int) int {
 	return count
 }
 
-func main() {
-	steps := CollatzCountdown(12)
-	fmt.Println(steps)
-}
-
-// hackathon`,
+// hackathon
+`,
 		Description: "Считает шаги последовательности Collatz: n четное → n/2, нечетное → 3n+1.",
 		Concepts:    []string{"collatzcountdown"},
 	},
@@ -737,9 +667,7 @@ func main() {
 		Name:        "concatparams",
 		DisplayName: "ConcatParams",
 		Signature:   "func ConcatParams(args []string) string",
-		Solution: `package main
-
-import "fmt"
+		Solution: `package piscine
 
 func ConcatParams(args []string) string {
 	if len(args) == 0 {
@@ -752,12 +680,8 @@ func ConcatParams(args []string) string {
 	return result
 }
 
-func main() {
-	test := []string{"Hello", "how", "are", "you?"}
-	fmt.Println(ConcatParams(test))
-}
-
-// quest 7`,
+// quest 7
+`,
 		Description: "Соединяет все аргументы командной строки через перевод строки.",
 		Concepts:    []string{"concatparams", "аргументы", "os.Args", "командная строка"},
 	},
@@ -765,9 +689,7 @@ func main() {
 		Name:        "convertbase",
 		DisplayName: "ConvertBase",
 		Signature:   "func ConvertBase(nbr, baseFrom, baseTo string) string",
-		Solution: `package main
-
-import "fmt"
+		Solution: `package piscine
 
 func power(n int, p int) int {
 	np := 1
@@ -815,25 +737,15 @@ func ConvertBase(nbr, baseFrom, baseTo string) string {
 	return convertBase10toBase(convertBaseto10(nbr, baseFrom), baseTo)
 }
 
-func main() {
-	result := ConvertBase("101011", "01", "0123456789")
-	fmt.Println(result)
-	fmt.Println(ConvertBase("uoi", "choumi", "01"))
-	fmt.Println(ConvertBase("1111101", "01", "123"))
-	// fmt.Println(power(10,3))
-	// fmt.Println(convertBaseto10("uoi", "choumi"))
-	// fmt.Println(convertBaseto10("7D", "0123456789ABCDEF"))
-	// fmt.Println(convertBase10toBase(125, "0123456789ABCDEF"))
-}
-
-// quest 7`,
+// quest 7
+`,
 		Description: "Конвертирует число из одной системы счисления в другую.",
 		Concepts:    []string{"convertbase"},
 	},
 	{
 		Name:        "countdown",
 		DisplayName: "Countdown",
-		Signature:   "// signature not detected",
+		Signature:   "program in package main",
 		Solution: `package main
 
 import "github.com/01-edu/z01"
@@ -853,9 +765,7 @@ func main() {
 		Name:        "countif",
 		DisplayName: "CountIf",
 		Signature:   "func CountIf(f func(string) bool, tab []string) int",
-		Solution: `package main
-
-import "fmt"
+		Solution: `package piscine
 
 func CountIf(f func(string) bool, tab []string) int {
 	count := 0
@@ -867,16 +777,8 @@ func CountIf(f func(string) bool, tab []string) int {
 	return count
 }
 
-func main() {
-	tab1 := []string{"Hello", "how", "are", "you"}
-	tab2 := []string{"This", "1", "is", "4", "you"}
-	answer1 := CountIf(IsNumeric, tab1)
-	answer2 := CountIf(IsNumeric, tab2)
-	fmt.Println(answer1)
-	fmt.Println(answer2)
-}
-
-// quest 9`,
+// quest 9
+`,
 		Description: "Считает сколько элементов слайса удовлетворяют переданному предикату.",
 		Concepts:    []string{"countif", "higher-order function", "функция как параметр"},
 	},
@@ -884,7 +786,7 @@ func main() {
 		Name:        "descendcomb",
 		DisplayName: "DescendComb",
 		Signature:   "func DescendComb()",
-		Solution: `package main
+		Solution: `package piscine
 
 import "github.com/01-edu/z01"
 
@@ -920,18 +822,15 @@ func printz01(r rune) {
 	z01.PrintRune(r)
 }
 
-func main() {
-	DescendComb()
-}
-
-// hackathon`,
+// hackathon
+`,
 		Description: "Генерирует комбинации цифр в убывающем порядке (от 9 к 0).",
 		Concepts:    []string{"descendcomb", "комбинации", "combinations"},
 	},
 	{
 		Name:        "displaya",
 		DisplayName: "DisplayA",
-		Signature:   "// signature not detected",
+		Signature:   "program in package main",
 		Solution: `package main
 
 import "os"
@@ -947,7 +846,7 @@ func main() {
 	{
 		Name:        "displayalpham",
 		DisplayName: "DisplayAlphaM",
-		Signature:   "// signature not detected",
+		Signature:   "program in package main",
 		Solution: `package main
 
 import "github.com/01-edu/z01"
@@ -972,7 +871,7 @@ func main() {
 	{
 		Name:        "displayalrevm",
 		DisplayName: "DisplayAlrevM",
-		Signature:   "// signature not detected",
+		Signature:   "program in package main",
 		Solution: `package main
 
 import "github.com/01-edu/z01"
@@ -997,7 +896,7 @@ func main() {
 	{
 		Name:        "displayfile",
 		DisplayName: "DisplayFile",
-		Signature:   "// signature not detected",
+		Signature:   "program in package main",
 		Solution: `package main
 
 import (
@@ -1027,7 +926,7 @@ func main() {
 	{
 		Name:        "displayfirstparam",
 		DisplayName: "DisplayFirstParam",
-		Signature:   "// signature not detected",
+		Signature:   "program in package main",
 		Solution: `package main
 
 import "os"
@@ -1046,7 +945,7 @@ func main() {
 	{
 		Name:        "displaylastparam",
 		DisplayName: "DisplayLastParam",
-		Signature:   "// signature not detected",
+		Signature:   "program in package main",
 		Solution: `package main
 
 import "os"
@@ -1065,7 +964,7 @@ func main() {
 	{
 		Name:        "displayz",
 		DisplayName: "DisplayZ",
-		Signature:   "// signature not detected",
+		Signature:   "program in package main",
 		Solution: `package main
 
 import "os"
@@ -1081,7 +980,7 @@ func main() {
 	{
 		Name:        "doop",
 		DisplayName: "DoOp",
-		Signature:   "// signature not detected",
+		Signature:   "program in package main",
 		Solution: `package main
 
 import "os"
@@ -1286,7 +1185,7 @@ func multipCheck(a, b int) bool {
 	{
 		Name:        "expandstr",
 		DisplayName: "ExpandStr",
-		Signature:   "// signature not detected",
+		Signature:   "program in package main",
 		Solution: `package main
 
 import "os"
@@ -1336,7 +1235,7 @@ func main() {
 	{
 		Name:        "expandstr2",
 		DisplayName: "ExpandStr2",
-		Signature:   "// signature not detected",
+		Signature:   "program in package main",
 		Solution: `package main
 
 import "os"
@@ -1381,9 +1280,7 @@ func splitt(s, sp string) []string {
 		Name:        "findprevprime",
 		DisplayName: "FindPrevPrime",
 		Signature:   "func FindPrevPrime(nb int) int",
-		Solution: `package main
-
-import "fmt"
+		Solution: `package piscine
 
 func FindPrevPrime(nb int) int {
 	if nb < 2 {
@@ -1410,19 +1307,15 @@ func isprime(n int) bool {
 	return true
 }
 
-func main() {
-	fmt.Println(FindPrevPrime(10))
-	fmt.Println(FindPrevPrime(42))
-}
-
-// checkpoint`,
+// checkpoint
+`,
 		Description: "Находит ближайшее простое число меньшее или равное n.",
 		Concepts:    []string{"findprevprime", "простое число", "prime"},
 	},
 	{
 		Name:        "firstword",
 		DisplayName: "FirstWord",
-		Signature:   "// signature not detected",
+		Signature:   "program in package main",
 		Solution: `package main
 
 import "os"
@@ -1450,7 +1343,7 @@ func main() {
 	{
 		Name:        "flags",
 		DisplayName: "Flags",
-		Signature:   "// signature not detected",
+		Signature:   "program in package main",
 		Solution: `package main
 
 import (
@@ -1567,7 +1460,7 @@ is inclusive and end is exclusive. */`,
 		Name:        "foldint",
 		DisplayName: "FoldInt",
 		Signature:   "func FoldInt(f func(int, int) int, a []int, n int)",
-		Solution: `package main
+		Solution: `package piscine
 
 import "fmt"
 
@@ -1590,21 +1483,8 @@ func Sub(a, b int) int {
 	return a - b
 }
 
-func main() {
-	table := []int{1, 2, 3}
-	ac := 93
-	FoldInt(Add, table, ac)
-	FoldInt(Mul, table, ac)
-	FoldInt(Sub, table, ac)
-	fmt.Println()
-
-	table = []int{0}
-	FoldInt(Add, table, ac)
-	FoldInt(Mul, table, ac)
-	FoldInt(Sub, table, ac)
-}
-
-// checkpoint`,
+// checkpoint
+`,
 		Description: "Reduce / fold для слайса int: применяет бинарную функцию накопителем.",
 		Concepts:    []string{"foldint", "higher-order function", "функция как параметр"},
 	},
@@ -1612,9 +1492,7 @@ func main() {
 		Name:        "fooddeliverytime",
 		DisplayName: "FoodDeliveryTime",
 		Signature:   "func FoodDeliveryTime(order string) int",
-		Solution: `package main
-
-import "fmt"
+		Solution: `package piscine
 
 type food struct {
 	preptime int
@@ -1634,22 +1512,16 @@ func FoodDeliveryTime(order string) int {
 	return n.preptime
 }
 
-func main() {
-	fmt.Println(FoodDeliveryTime("burger"))
-	fmt.Println(FoodDeliveryTime("chips"))
-	fmt.Println(FoodDeliveryTime("nuggets"))
-	fmt.Println(FoodDeliveryTime("burger") + FoodDeliveryTime("chips") + FoodDeliveryTime("nuggets"))
-}
-
-// hackathon`,
+// hackathon
+`,
 		Description: "Считает суммарное время доставки из строки заказов.",
 		Concepts:    []string{"fooddeliverytime"},
 	},
 	{
 		Name:        "foreach",
 		DisplayName: "ForEach",
-		Signature:   "// signature not detected",
-		Solution: `package main
+		Signature:   "program in package main",
+		Solution: `package piscine
 
 func ForEach(f func(int), a []int) {
 	for _, n := range a {
@@ -1657,19 +1529,15 @@ func ForEach(f func(int), a []int) {
 	}
 }
 
-func main() {
-	a := []int{1, 2, 3, 4, 5, 6}
-	ForEach(PrintNbr, a)
-}
-
-// quest 9`,
+// quest 9
+`,
 		Description: "Применяет переданную функцию к каждому элементу слайса int. Higher-order function.",
 		Concepts:    []string{"foreach"},
 	},
 	{
 		Name:        "fprime",
 		DisplayName: "FPrime",
-		Signature:   "// signature not detected",
+		Signature:   "program in package main",
 		Solution: `package main
 
 import "os"
@@ -1740,7 +1608,7 @@ func isp(n int) bool {
 	{
 		Name:        "fromto",
 		DisplayName: "FromTo",
-		Signature:   "// signature not detected",
+		Signature:   "program in package main",
 		Solution: `package main
 
 import (
@@ -1803,7 +1671,7 @@ func main() {
 	{
 		Name:        "gcd",
 		DisplayName: "Gcd",
-		Signature:   "// signature not detected",
+		Signature:   "program in package main",
 		Solution: `package main
 
 import "os"
@@ -1856,7 +1724,7 @@ func main() {
 	{
 		Name:        "hello",
 		DisplayName: "Hello",
-		Signature:   "// signature not detected",
+		Signature:   "program in package main",
 		Solution: `package main
 
 import "github.com/01-edu/z01"
@@ -1878,7 +1746,7 @@ func pstr(s string) {
 	{
 		Name:        "hiddenp",
 		DisplayName: "HiddenP",
-		Signature:   "// signature not detected",
+		Signature:   "program in package main",
 		Solution: `package main
 
 import "os"
@@ -1920,25 +1788,13 @@ func main() {
 		Name:        "indexx",
 		DisplayName: "IndexX",
 		Signature:   "func Index2(s string, toFind string) int",
-		Solution: `package main
-
-import "fmt"
-
-func main() {
-	fmt.Println(Index2("Hello!", "l"))
-	fmt.Println(Index2("Ŝalut!", "alu"))
-	fmt.Println(Index2(" ", ""))
-	fmt.Println(Index2("ahgdfalut!alu", "alu"))
-	fmt.Println(Index2("Ola!", "hOl"))
-	fmt.Println(Index2("Ollla!", "l"))
-	fmt.Println(Index2("Nnnxj\\g90X;.u", "nxj\\g90X;"))
-}
+		Solution: `package piscine
 
 func Index2(s string, toFind string) int {
 	sliceS := []rune(s)
 	sliceTofind := []rune(toFind)
 	count := -1
-	found := false 
+	found := false
 	if len(s) == 0 || len(toFind) == 0 || len(s) < len(toFind) {
 		return -1
 	}
@@ -1963,14 +1819,15 @@ func Index2(s string, toFind string) int {
 
 	}
 	return count
-}`,
+}
+`,
 		Description: "Альтернативная реализация Index — поиск подстроки с возвратом позиции.",
 		Concepts:    []string{"indexx"},
 	},
 	{
 		Name:        "inter",
 		DisplayName: "Inter",
-		Signature:   "// signature not detected",
+		Signature:   "program in package main",
 		Solution: `package main
 
 import "os"
@@ -2034,7 +1891,7 @@ exact dispaly order then u have to use: */
 	{
 		Name:        "ispowerof2",
 		DisplayName: "IsPowerOf2",
-		Signature:   "// signature not detected",
+		Signature:   "program in package main",
 		Solution: `package main
 
 import "os"
@@ -2104,9 +1961,7 @@ func atoio(s string) int {
 		Name:        "issorted",
 		DisplayName: "IsSorted",
 		Signature:   "func IsSorted(f func(a, b int) int, a []int) bool",
-		Solution: `package main
-
-import "fmt"
+		Solution: `package piscine
 
 func IsSorted(f func(a, b int) int, a []int) bool {
 	for i := 0; i+1 < len(a); i++ {
@@ -2127,18 +1982,8 @@ func f(a, b int) int {
 	}
 }
 
-func main() {
-	a1 := []int{0, 1, 2, 3, 5, 7}
-	a2 := []int{0, 2, 1, 3}
-
-	result1 := IsSorted(f, a1)
-	result2 := IsSorted(f, a2)
-
-	fmt.Println(result1)
-	fmt.Println(result2)
-}
-
-// quest 9`,
+// quest 9
+`,
 		Description: "Проверяет отсортирован ли слайс по возрастанию.",
 		Concepts:    []string{"issorted", "проверка", "is sorted", "check"},
 	},
@@ -2146,9 +1991,7 @@ func main() {
 		Name:        "join",
 		DisplayName: "Join",
 		Signature:   "func Join(strs []string, sep string) string",
-		Solution: `package main
-
-import "fmt"
+		Solution: `package piscine
 
 func Join(strs []string, sep string) string {
 	sliceString := []string(strs)
@@ -2159,19 +2002,15 @@ func Join(strs []string, sep string) string {
 	return result
 }
 
-func main() {
-	toConcat := []string{"Hello!", " How", " are", " you?"}
-	fmt.Println(Join(toConcat, ":"))
-}
-
-// quest 5`,
+// quest 5
+`,
 		Description: "Соединяет слайс строк через разделитель — аналог strings.Join.",
 		Concepts:    []string{"join"},
 	},
 	{
 		Name:        "lastword",
 		DisplayName: "LastWord",
-		Signature:   "// signature not detected",
+		Signature:   "program in package main",
 		Solution: `package main
 
 import "os"
@@ -2208,9 +2047,7 @@ func main() {
 		Name:        "loafofbread",
 		DisplayName: "LoafOfBread",
 		Signature:   "func LoafOfBread(str string) string",
-		Solution: `package main
-
-import "fmt"
+		Solution: `package piscine
 
 func LoafOfBread(str string) string {
 	s := []rune(str)
@@ -2239,13 +2076,8 @@ func LoafOfBread(str string) string {
 	return string(r) + "\n"
 }
 
-func main() {
-	fmt.Print(LoafOfBread("deliciousbread"))
-	fmt.Print(LoafOfBread("This is a loaf of bread"))
-	fmt.Print(LoafOfBread("loaf"))
-}
-
-// hackathon`,
+// hackathon
+`,
 		Description: "Печатает 'ASCII-художество' — рисует буханку хлеба точками и звёздочками.",
 		Concepts:    []string{"loafofbread"},
 	},
@@ -2253,9 +2085,7 @@ func main() {
 		Name:        "map",
 		DisplayName: "Map",
 		Signature:   "func Map(f func(int) bool, a []int) []bool",
-		Solution: `package main
-
-import "fmt"
+		Solution: `package piscine
 
 func Map(f func(int) bool, a []int) []bool {
 	boolslice := make([]bool, len(a))
@@ -2269,13 +2099,8 @@ func Map(f func(int) bool, a []int) []bool {
 	return boolslice
 }
 
-func main() {
-	a := []int{1, 2, 3, 4, 5, 6}
-	result := Map(IsPrime, a)
-	fmt.Println(result)
-}
-
-// quest 9`,
+// quest 9
+`,
 		Description: "Применяет функцию-преобразователь к каждому элементу слайса. Higher-order map.",
 		Concepts:    []string{"map", "higher-order function", "функция как параметр"},
 	},
@@ -2283,9 +2108,7 @@ func main() {
 		Name:        "max",
 		DisplayName: "Max",
 		Signature:   "func Max(a []int) int",
-		Solution: `package main
-
-import "fmt"
+		Solution: `package piscine
 
 func Max(a []int) int {
 	if len(a) == 0 {
@@ -2300,20 +2123,15 @@ func Max(a []int) int {
 	return max
 }
 
-func main() {
-	a := []int{223, 123, 1, 11, 55, 910}
-	max := Max(a)
-	fmt.Println(max)
-}
-
-// checkpoint`,
+// checkpoint
+`,
 		Description: "Возвращает максимальное значение из переданных int.",
 		Concepts:    []string{"max"},
 	},
 	{
 		Name:        "maxminint",
 		DisplayName: "MaxMinInt",
-		Signature:   "// signature not detected",
+		Signature:   "program in package main",
 		Solution: `package main
 
 import "fmt"
@@ -2423,7 +2241,7 @@ whether it's 32-bit or 64-bit.
 	{
 		Name:        "nbrconvertalpha",
 		DisplayName: "NbrConvertAlpha",
-		Signature:   "// signature not detected",
+		Signature:   "program in package main",
 		Solution: `package main
 
 import (
@@ -2467,7 +2285,7 @@ func main() {
 	{
 		Name:        "onlya",
 		DisplayName: "OnlyA",
-		Signature:   "// signature not detected",
+		Signature:   "program in package main",
 		Solution: `package main
 
 import "github.com/01-edu/z01"
@@ -2483,7 +2301,7 @@ func main() {
 	{
 		Name:        "onlyz",
 		DisplayName: "OnlyZ",
-		Signature:   "// signature not detected",
+		Signature:   "program in package main",
 		Solution: `package main
 
 import "github.com/01-edu/z01"
@@ -2499,7 +2317,7 @@ func main() {
 	{
 		Name:        "paramcount",
 		DisplayName: "ParamCount",
-		Signature:   "// signature not detected",
+		Signature:   "program in package main",
 		Solution: `package main
 
 import "os"
@@ -2529,7 +2347,7 @@ func printn(n int) string {
 	{
 		Name:        "piglatin",
 		DisplayName: "PigLatin",
-		Signature:   "// signature not detected",
+		Signature:   "program in package main",
 		Solution: `package main
 
 import "os"
@@ -2570,7 +2388,7 @@ func isvowel(r rune) bool {
 	{
 		Name:        "point",
 		DisplayName: "Point",
-		Signature:   "// signature not detected",
+		Signature:   "program in package main",
 		Solution: `package main
 
 import "fmt"
@@ -2600,7 +2418,7 @@ func main() {
 	{
 		Name:        "print2complbits",
 		DisplayName: "Print2ComplBits",
-		Signature:   "// signature not detected",
+		Signature:   "program in package main",
 		Solution: `package main
 
 import "os"
@@ -2734,7 +2552,7 @@ to the former one.
 	{
 		Name:        "printalphabet",
 		DisplayName: "PrintAlphabet",
-		Signature:   "// signature not detected",
+		Signature:   "program in package main",
 		Solution: `package main
 
 import "github.com/01-edu/z01"
@@ -2768,7 +2586,7 @@ language.*/
 	{
 		Name:        "printbits",
 		DisplayName: "PrintBits",
-		Signature:   "// signature not detected",
+		Signature:   "program in package main",
 		Solution: `package main
 
 import "os"
@@ -2828,13 +2646,9 @@ func main() {
 		Name:        "printcomba",
 		DisplayName: "PrintCombA",
 		Signature:   "func PrintComba()",
-		Solution: `package main
+		Solution: `package piscine
 
 import "github.com/01-edu/z01"
-
-func main() {
-	PrintComba()
-}
 
 func PrintComba() {
 	for i := '0'; i <= '7'; i++ {
@@ -2857,7 +2671,8 @@ func PrintComba() {
 	z01.PrintRune('\n')
 }
 
-// using the if i>=j and j>=k while initializing loop incrementals`,
+// using the if i>=j and j>=k while initializing loop incrementals
+`,
 		Description: "Похоже на printcomb, но с альтернативным форматом или ограничениями.",
 		Concepts:    []string{"printcomba", "печать", "вывод", "print", "комбинации", "combinations"},
 	},
@@ -2865,7 +2680,7 @@ func PrintComba() {
 		Name:        "printcombb",
 		DisplayName: "PrintCombB",
 		Signature:   "func PrintComb()",
-		Solution: `package main
+		Solution: `package piscine
 
 import "github.com/01-edu/z01"
 
@@ -2893,18 +2708,15 @@ func PrintComb() {
 	z01.PrintRune('\n')
 }
 
-func main() {
-	PrintComb()
-}
-
-// quest 2.`,
+// quest 2.
+`,
 		Description: "Ещё одна вариация printcomb.",
 		Concepts:    []string{"printcombb", "печать", "вывод", "print", "комбинации", "combinations"},
 	},
 	{
 		Name:        "printdigits",
 		DisplayName: "PrintDigits",
-		Signature:   "// signature not detected",
+		Signature:   "program in package main",
 		Solution: `package main
 
 import "github.com/01-edu/z01"
@@ -2923,7 +2735,7 @@ func main() {
 	{
 		Name:        "printhex",
 		DisplayName: "PrintHex",
-		Signature:   "// signature not detected",
+		Signature:   "program in package main",
 		Solution: `package main
 
 import "os"
@@ -2972,7 +2784,7 @@ func main() {
 		Name:        "printmemory",
 		DisplayName: "PrintMemory",
 		Signature:   "func PrintMemory(arr [10]byte)",
-		Solution: `package main
+		Solution: `package piscine
 
 import "github.com/01-edu/z01"
 
@@ -3029,11 +2841,8 @@ func hex(n int) string {
 	return string(r)
 }
 
-func main() {
-	PrintMemory([10]byte{'h', 'e', 'l', 'l', 'o', 16, 21, '*'})
-}
-
-// checkpoint / hardcoded using append (i don't know if it's allowed)`,
+// checkpoint / hardcoded using append (i don't know if it's allowed)
+`,
 		Description: "Печатает байты слайса в hex-формате с группировкой.",
 		Concepts:    []string{"printmemory", "печать", "вывод", "print", "биты", "bits", "binary"},
 	},
@@ -3041,7 +2850,7 @@ func main() {
 		Name:        "printmemory2",
 		DisplayName: "PrintMemory2",
 		Signature:   "func PrintMemory(arr [10]byte)",
-		Solution: `package main
+		Solution: `package piscine
 
 import "github.com/01-edu/z01"
 
@@ -3065,12 +2874,7 @@ func PrintMemory(arr [10]byte) {
 	z01.PrintRune('\n')
 }
 
-func main() {
-	PrintMemory([10]byte{'h', 'e', 'l', 'l', 'o', 16, 21, '*'})
-}
-
 // checkpoint
-
 
 /************************* Explanation***************************
 these two lines saved us too much code:
@@ -3079,44 +2883,45 @@ z01.PrintRune(rune(hex[arr[i]&15]))
 
 so let's try to understand them:
 
-The conversion from binary to hexadecimal is efficient 
-and straightforward because both are base-2 systems, 
-meaning hexadecimal is a base-16 system which is a power 
-of 2 (2^4 = 16). This relationship allows for a direct 
-and simple conversion process, unlike the conversion 
-between binary and decimal, where the base-10 system does 
+The conversion from binary to hexadecimal is efficient
+and straightforward because both are base-2 systems,
+meaning hexadecimal is a base-16 system which is a power
+of 2 (2^4 = 16). This relationship allows for a direct
+and simple conversion process, unlike the conversion
+between binary and decimal, where the base-10 system does
 not align as neatly with binary's base-2 system.
 
-Each hexadecimal digit can represent four binary digits 
-(bits) because 2^4 = 16. Thus, one hexadecimal digit can 
-exactly represent a range from 0000 to 1111 in binary 
+Each hexadecimal digit can represent four binary digits
+(bits) because 2^4 = 16. Thus, one hexadecimal digit can
+exactly represent a range from 0000 to 1111 in binary
 (or 0 to 15 in decimal).
 
-Since one hexadecimal digit corresponds to exactly 4 bits 
-in binary, we can split a byte (8 bits) into two halves, 
-with each half directly mapping to a single hexadecimal 
-digit. This is why the method involves isolating the 
+Since one hexadecimal digit corresponds to exactly 4 bits
+in binary, we can split a byte (8 bits) into two halves,
+with each half directly mapping to a single hexadecimal
+digit. This is why the method involves isolating the
 high and low 4-bit parts of the byte.
 
 High-order Half (arr[i]>>4):
-By shifting the byte to the right by 4 bits (>>4), you 
-effectively discard the lower 4 bits and move the upper 
-4 bits to the position of the lower 4 bits. This 
-operation transforms the upper half of the byte into 
-a value that can be directly looked up in a hexadecimal 
-mapping. For any given byte, this reveals the hexadecimal 
+By shifting the byte to the right by 4 bits (>>4), you
+effectively discard the lower 4 bits and move the upper
+4 bits to the position of the lower 4 bits. This
+operation transforms the upper half of the byte into
+a value that can be directly looked up in a hexadecimal
+mapping. For any given byte, this reveals the hexadecimal
 digit for the more significant part (the "high-order" half).
 
 Low-order Half (arr[i]&15):
-Applying a bitwise AND operation with 15 (0x0F or 
-00001111 in binary) masks the upper 4 bits of the 
-byte, isolating the lower 4 bits. This is because 
-any bit ANDed with 0 results in 0, and any bit 
-ANDed with 1 remains unchanged. This operation 
-reveals the hexadecimal digit for the less significant 
+Applying a bitwise AND operation with 15 (0x0F or
+00001111 in binary) masks the upper 4 bits of the
+byte, isolating the lower 4 bits. This is because
+any bit ANDed with 0 results in 0, and any bit
+ANDed with 1 remains unchanged. This operation
+reveals the hexadecimal digit for the less significant
 part (the "low-order" half).
 
-*/`,
+*/
+`,
 		Description: "Версия printmemory с более компактным форматированием.",
 		Concepts:    []string{"printmemory2", "печать", "вывод", "print", "биты", "bits", "binary"},
 	},
@@ -3124,16 +2929,9 @@ part (the "low-order" half).
 		Name:        "printnbr",
 		DisplayName: "PrintNbr",
 		Signature:   "func PrintNbr(n int)",
-		Solution: `package main
+		Solution: `package piscine
 
 import "github.com/01-edu/z01"
-
-func main() {
-	PrintNbr(-123)
-	PrintNbr(0)
-	PrintNbr(123)
-	z01.PrintRune('\n')
-}
 
 func PrintPositiveNum(n int) {
 	// var r string
@@ -3160,7 +2958,8 @@ func PrintNbr(n int) {
 	PrintPositiveNum(n)
 }
 
-// quest 2. (itoa)`,
+// quest 2. (itoa)
+`,
 		Description: "Печатает целое число через z01.PrintRune, поддерживая отрицательные через знак '-'. Использует рекурсию для разбора числа по цифрам.",
 		Concepts:    []string{"printnbr", "печать", "вывод", "print"},
 	},
@@ -3168,16 +2967,9 @@ func PrintNbr(n int) {
 		Name:        "printnbr2",
 		DisplayName: "PrintNbr2",
 		Signature:   "func PrintNbr2(n int)",
-		Solution: `package main
+		Solution: `package piscine
 
 import "github.com/01-edu/z01"
-
-func main() {
-	PrintNbr2(-123)
-	PrintNbr2(0)
-	PrintNbr2(123)
-	z01.PrintRune('\n')
-}
 
 func PrintNbr2(n int) {
 	var nbr int
@@ -3242,7 +3034,8 @@ the character "A", rune(65) results in a rune, which is
 a numeric type representing the character "A"'s code
 point in Unicode. If you print it directly, Go will
 display the numeric value of the rune, unless you convert
-it to a string or format it to display as a character.*/`,
+it to a string or format it to display as a character.*/
+`,
 		Description: "Вариант PrintNbr — печатает число посимвольно через z01.PrintRune.",
 		Concepts:    []string{"printnbr2", "печать", "вывод", "print"},
 	},
@@ -3250,7 +3043,7 @@ it to a string or format it to display as a character.*/`,
 		Name:        "printnbr3",
 		DisplayName: "PrintNbr3",
 		Signature:   "func PrintNbr(n int)",
-		Solution: `package main
+		Solution: `package piscine
 
 import "github.com/01-edu/z01"
 
@@ -3277,24 +3070,15 @@ func printnbr0(n int) {
 	}
 }
 
-func main() {
-	PrintNbr(-123)
-	PrintNbr(0)
-	PrintNbr(123)
-	z01.PrintRune('\n')
-	// z01.PrintRune(rune(78))
-	// z01.PrintRune(rune(48))
-	// z01.PrintRune(rune(39))
-}
-
-// Quest 2 (using recursion)`,
+// Quest 2 (using recursion)
+`,
 		Description: "Ещё один вариант PrintNbr — печать целого числа поразрядно.",
 		Concepts:    []string{"printnbr3", "печать", "вывод", "print"},
 	},
 	{
 		Name:        "printparams",
 		DisplayName: "PrintParams",
-		Signature:   "// signature not detected",
+		Signature:   "program in package main",
 		Solution: `package main
 
 import (
@@ -3324,7 +3108,7 @@ func main() {
 	{
 		Name:        "printprogramname",
 		DisplayName: "PrintProgramName",
-		Signature:   "// signature not detected",
+		Signature:   "program in package main",
 		Solution: `package main
 
 import (
@@ -3353,7 +3137,7 @@ func main() {
 	{
 		Name:        "printreversealphabet",
 		DisplayName: "PrintReverseAlphabet",
-		Signature:   "// signature not detected",
+		Signature:   "program in package main",
 		Solution: `package main
 
 import "github.com/01-edu/z01"
@@ -3373,7 +3157,7 @@ func main() {
 		Name:        "printwordstables",
 		DisplayName: "PrintWordsTables",
 		Signature:   "func PrintWordsTables(a []string)",
-		Solution: `package main
+		Solution: `package piscine
 
 import "github.com/01-edu/z01"
 
@@ -3406,12 +3190,8 @@ func PrintWordsTables(a []string) {
 	}
 }
 
-func main() {
-	a := SplitWhiteSpaces("Hello how are you?")
-	PrintWordsTables(a)
-}
-
-// quest 7`,
+// quest 7
+`,
 		Description: "Печатает таблицу слов или специальное форматирование строк.",
 		Concepts:    []string{"printwordstables", "печать", "вывод", "print"},
 	},
@@ -3419,7 +3199,7 @@ func main() {
 		Name:        "reduceint",
 		DisplayName: "Reduceint",
 		Signature:   "func ReduceInt(a []int, f func(int, int) int)",
-		Solution: `package main
+		Solution: `package piscine
 
 import "github.com/01-edu/z01"
 
@@ -3440,30 +3220,15 @@ func printnum(n int) {
 	z01.PrintRune(rune(n%10) + '0')
 }
 
-func main() {
-	mul := func(acc int, cur int) int {
-		return acc * cur
-	}
-	sum := func(acc int, cur int) int {
-		return acc + cur
-	}
-	div := func(acc int, cur int) int {
-		return acc / cur
-	}
-	as := []int{500, 2}
-	ReduceInt(as, mul)
-	ReduceInt(as, sum)
-	ReduceInt(as, div)
-}
-
-// checkpoint`,
+// checkpoint
+`,
 		Description: "Решение упражнения Reduceint из Piscine 01edu. Полный код в секции '✅ Решение'.",
 		Concepts:    []string{"reduceint", "higher-order function", "функция как параметр"},
 	},
 	{
 		Name:        "repeatalpha",
 		DisplayName: "Repeatalpha",
-		Signature:   "// signature not detected",
+		Signature:   "program in package main",
 		Solution: `package main
 
 import "os"
@@ -3498,9 +3263,7 @@ func main() {
 		Name:        "reversebits",
 		DisplayName: "Reversebits",
 		Signature:   "func ReverseBits(oct byte) byte",
-		Solution: `package main
-
-import "fmt"
+		Solution: `package piscine
 
 func ReverseBits(oct byte) byte {
 	var result byte
@@ -3510,12 +3273,6 @@ func ReverseBits(oct byte) byte {
 		oct >>= 1
 	}
 	return result
-}
-
-func main() {
-	myByte := byte(0b10101101)
-	fmt.Printf("Byte before reverse: %b\n", myByte)
-	fmt.Printf("Byte after reverse : %b\n", ReverseBits(myByte))
 }
 
 // checkpoint
@@ -3535,14 +3292,15 @@ The function essentially builds the reversed binary
 number one bit at a time, shifting result to make room
 for the next bit and extracting each bit from oct
 starting from the right.
-*/`,
+*/
+`,
 		Description: "Решение упражнения Reversebits из Piscine 01edu. Полный код в секции '✅ Решение'.",
 		Concepts:    []string{"reversebits", "биты", "bits", "binary"},
 	},
 	{
 		Name:        "reversestrcap",
 		DisplayName: "Reversestrcap",
-		Signature:   "// signature not detected",
+		Signature:   "program in package main",
 		Solution: `package main
 
 import "os"
@@ -3573,7 +3331,7 @@ func main() {
 	{
 		Name:        "revparams",
 		DisplayName: "Revparams",
-		Signature:   "// signature not detected",
+		Signature:   "program in package main",
 		Solution: `package main
 
 import (
@@ -3603,7 +3361,7 @@ func main() {
 	{
 		Name:        "revwstr",
 		DisplayName: "Revwstr",
-		Signature:   "// signature not detected",
+		Signature:   "program in package main",
 		Solution: `package main
 
 import "os"
@@ -3651,7 +3409,7 @@ func splitt(s, sp string) []string {
 	{
 		Name:        "romannumbers",
 		DisplayName: "Romannumbers",
-		Signature:   "// signature not detected",
+		Signature:   "program in package main",
 		Solution: `package main
 
 import "os"
@@ -3719,7 +3477,7 @@ func main() {
 	{
 		Name:        "rostring",
 		DisplayName: "Rostring",
-		Signature:   "// signature not detected",
+		Signature:   "program in package main",
 		Solution: `package main
 
 import "os"
@@ -3766,7 +3524,7 @@ func main() {
 	{
 		Name:        "rot13",
 		DisplayName: "Rot13",
-		Signature:   "// signature not detected",
+		Signature:   "program in package main",
 		Solution: `package main
 
 import "os"
@@ -3795,9 +3553,7 @@ func main() {
 		Name:        "rot14",
 		DisplayName: "Rot14",
 		Signature:   "func Rot14(s string) string",
-		Solution: `package main
-
-import "github.com/01-edu/z01"
+		Solution: `package piscine
 
 func Rot14(s string) string {
 	sliceS := []rune(s)
@@ -3811,23 +3567,15 @@ func Rot14(s string) string {
 	return string(sliceS)
 }
 
-func main() {
-	result := Rot14("Hello! How are You?")
-
-	for _, r := range result {
-		z01.PrintRune(r)
-	}
-	z01.PrintRune('\n')
-}
-
-// hackathon`,
+// hackathon
+`,
 		Description: "Решение упражнения Rot14 из Piscine 01edu. Полный код в секции '✅ Решение'.",
 		Concepts:    []string{"rot14"},
 	},
 	{
 		Name:        "searchreplace",
 		DisplayName: "Searchreplace",
-		Signature:   "// signature not detected",
+		Signature:   "program in package main",
 		Solution: `package main
 
 import "os"
@@ -3854,9 +3602,7 @@ func main() {
 		Name:        "sortintegertable",
 		DisplayName: "Sortintegertable",
 		Signature:   "func SortIntegerTable(table []int)",
-		Solution: `package main
-
-import "fmt"
+		Solution: `package piscine
 
 func SortIntegerTable(table []int) {
 	for i := 0; i < len(table)-1; i++ {
@@ -3868,13 +3614,8 @@ func SortIntegerTable(table []int) {
 	}
 }
 
-func main() {
-	s := []int{4, 4, 3, 5, 1, 0}
-	SortIntegerTable(s)
-	fmt.Println(s)
-}
-
-// quest 3 (using bubble sorting algo)`,
+// quest 3 (using bubble sorting algo)
+`,
 		Description: "Решение упражнения Sortintegertable из Piscine 01edu. Полный код в секции '✅ Решение'.",
 		Concepts:    []string{"sortintegertable"},
 	},
@@ -3882,9 +3623,7 @@ func main() {
 		Name:        "sortintegertable2",
 		DisplayName: "Sortintegertable2",
 		Signature:   "func SortIntegerTable(table []int)",
-		Solution: `package main
-
-import "fmt"
+		Solution: `package piscine
 
 func SortIntegerTable(table []int) {
 	for i := 0; i < len(table); i++ {
@@ -3896,20 +3635,15 @@ func SortIntegerTable(table []int) {
 	}
 }
 
-func main() {
-	s := []int{4, 4, 3, 5, 1, 0}
-	SortIntegerTable(s)
-	fmt.Println(s)
-}
-
-// quest 3 (selection sort algorithm)`,
+// quest 3 (selection sort algorithm)
+`,
 		Description: "Решение упражнения Sortintegertable2 из Piscine 01edu. Полный код в секции '✅ Решение'.",
 		Concepts:    []string{"sortintegertable2"},
 	},
 	{
 		Name:        "sortparams",
 		DisplayName: "Sortparams",
-		Signature:   "// signature not detected",
+		Signature:   "program in package main",
 		Solution: `package main
 
 import (
@@ -3947,9 +3681,7 @@ func main() {
 		Name:        "sortwordarr",
 		DisplayName: "Sortwordarr",
 		Signature:   "func SortWordArr(a []string)",
-		Solution: `package main
-
-import "fmt"
+		Solution: `package piscine
 
 func SortWordArr(a []string) {
 	for i := 0; i < len(a)-1; i++ {
@@ -3961,14 +3693,8 @@ func SortWordArr(a []string) {
 	}
 }
 
-func main() {
-	result := []string{"a", "A", "1", "b", "B", "2", "c", "C", "3"}
-	SortWordArr(result)
-
-	fmt.Println(result)
-}
-
-// quest 9 / checkpoint`,
+// quest 9 / checkpoint
+`,
 		Description: "Решение упражнения Sortwordarr из Piscine 01edu. Полный код в секции '✅ Решение'.",
 		Concepts:    []string{"sortwordarr"},
 	},
@@ -3976,12 +3702,7 @@ func main() {
 		Name:        "split",
 		DisplayName: "Split",
 		Signature:   "func Split(s, sep string) []string",
-		Solution: `package main
-
-import (
-	"fmt"
-	"strings"
-)
+		Solution: `package piscine
 
 func Split(s, sep string) []string {
 	startIndex := 0
@@ -4010,23 +3731,8 @@ func Split(s, sep string) []string {
 	return r
 }
 
-func main() {
-	s := "HAHelloHAHAHAHAhowHAHAareHAyou?HAHA"
-	// s := "HelloHAhowHAareHAyou?" they apparently only tested this base case this is why "wrong" answer may also work
-
-	fmt.Printf("%#v\n", Split(s, "HA")) // this line allow us to see clearly how and why we added the condition "if s[index:i]!=""{" above
-	fmt.Println(Split("a b c", " "))
-	fmt.Println(Split("ggg - ddd - b", " - "))
-	fmt.Println(Split("ee,ff,g,", ","))
-	fmt.Println(Split("Riad", " "))
-	fmt.Println(Split("rrrr", "rr"))
-	fmt.Println(Split("rrirr", "rr"))
-	fmt.Println(Split("Riad", ""))
-	fmt.Println(Split("l", "ll"))
-	fmt.Println(len(strings.Split("rrrr", "rr")))
-}
-
-// quest 7 / checkpoint`,
+// quest 7 / checkpoint
+`,
 		Description: "Решение упражнения Split из Piscine 01edu. Полный код в секции '✅ Решение'.",
 		Concepts:    []string{"split"},
 	},
@@ -4034,9 +3740,7 @@ func main() {
 		Name:        "split2",
 		DisplayName: "Split2",
 		Signature:   "func Split2(s, sep string) []string",
-		Solution: `package main
-
-import "fmt"
+		Solution: `package piscine
 
 // // adapting the previous splitwhitespaces to the new split format
 func SplitWhiteSpaces2(s string) []string {
@@ -4098,14 +3802,8 @@ func Split2(s, sep string) []string {
 	return final
 }
 
-func main() {
-	fmt.Printf("%#v\n", SplitWhiteSpaces2("Hello how are you?"))
-	s := "HAHelloHAHAHAhowHAHAareHAyou?HAHAHA"
-	//d := "HelloHAhowHAareHAyou?"
-	fmt.Printf("%#v\n", Split2(s, "HA"))
-}
-
-// quest 7 / checkpoint`,
+// quest 7 / checkpoint
+`,
 		Description: "Решение упражнения Split2 из Piscine 01edu. Полный код в секции '✅ Решение'.",
 		Concepts:    []string{"split2"},
 	},
@@ -4113,9 +3811,7 @@ func main() {
 		Name:        "splitwhitespaces",
 		DisplayName: "Splitwhitespaces",
 		Signature:   "func SplitWhiteSpaces(s string) []string",
-		Solution: `package main
-
-import "fmt"
+		Solution: `package piscine
 
 func SplitWhiteSpaces(s string) []string {
 	r := []string{}
@@ -4133,21 +3829,18 @@ func SplitWhiteSpaces(s string) []string {
 	return r
 }
 
-func main() {
-	fmt.Printf("%#v\n", SplitWhiteSpaces("Hello how are you?"))
-}
-
 // quest 7
 
-/* "%#v" is a format verb that tells Printf to print the 
-value in a Go-syntax representation.*/`,
+/* "%#v" is a format verb that tells Printf to print the
+value in a Go-syntax representation.*/
+`,
 		Description: "Решение упражнения Splitwhitespaces из Piscine 01edu. Полный код в секции '✅ Решение'.",
 		Concepts:    []string{"splitwhitespaces"},
 	},
 	{
 		Name:        "strchunks",
 		DisplayName: "Strchunks",
-		Signature:   "// signature not detected",
+		Signature:   "program in package main",
 		Solution: `package main
 
 import "fmt"
@@ -4210,9 +3903,7 @@ func main() {
 		Name:        "strrev2",
 		DisplayName: "Strrev2",
 		Signature:   "func StrRev2(s string) string",
-		Solution: `package main
-
-import "fmt"
+		Solution: `package piscine
 
 func StrRev2(s string) string {
 	runeS := []rune(s)
@@ -4222,19 +3913,14 @@ func StrRev2(s string) string {
 	return string(runeS)
 }
 
-func main() {
-	s := "Helloô World!"  // using this make obvious that we need to work with len(runeS) instead of len(s)
-	s = StrRev2(s)
-	fmt.Println(s)
-}
-
 // quest 3 (using swap and loop)
 
 // You can also use:
 /*for i := 0; i < len(s)/2; i++ {
 		j := len(runeS) - i - 1
 		runeS[i], runeS[j] = runeS[j], runeS[i]
-	}*/`,
+	}*/
+`,
 		Description: "Решение упражнения Strrev2 из Piscine 01edu. Полный код в секции '✅ Решение'.",
 		Concepts:    []string{"strrev2", "строка", "string"},
 	},
@@ -4242,9 +3928,7 @@ func main() {
 		Name:        "swapbits",
 		DisplayName: "Swapbits",
 		Signature:   "func SwapBits(octet byte) byte",
-		Solution: `package main
-
-import "fmt"
+		Solution: `package piscine
 
 func SwapBits(octet byte) byte {
 	r := octet >> 4
@@ -4253,21 +3937,16 @@ func SwapBits(octet byte) byte {
 	return r | l
 }
 
-func main() {
-	myByte := byte(0b10101101)
-	fmt.Printf("before swap: %b\n", myByte)
-	fmt.Printf("After swap : %b\n", SwapBits(myByte))
-}
-
 // checkpoint
-// bits related : reversebits, maxminint, bitwise, printmemory`,
+// bits related : reversebits, maxminint, bitwise, printmemory
+`,
 		Description: "Решение упражнения Swapbits из Piscine 01edu. Полный код в секции '✅ Решение'.",
 		Concepts:    []string{"swapbits", "биты", "bits", "binary"},
 	},
 	{
 		Name:        "switchcase",
 		DisplayName: "Switchcase",
-		Signature:   "// signature not detected",
+		Signature:   "program in package main",
 		Solution: `package main
 
 import "os"
@@ -4295,7 +3974,7 @@ func main() {
 	{
 		Name:        "tabmult",
 		DisplayName: "Tabmult",
-		Signature:   "// signature not detected",
+		Signature:   "program in package main",
 		Solution: `package main
 
 import "os"
@@ -4379,7 +4058,7 @@ itoa function to reconvert to a string
 	{
 		Name:        "union",
 		DisplayName: "Union",
-		Signature:   "// signature not detected",
+		Signature:   "program in package main",
 		Solution: `package main
 
 import (
@@ -4418,9 +4097,7 @@ func main() {
 		Name:        "unmatch",
 		DisplayName: "Unmatch",
 		Signature:   "func Unmatch(a []int) int",
-		Solution: `package main
-
-import "fmt"
+		Solution: `package piscine
 
 func Unmatch(a []int) int {
 	for i := 0; i < len(a); i++ {
@@ -4437,20 +4114,15 @@ func Unmatch(a []int) int {
 	return -1
 }
 
-func main() {
-	a := []int{1, 2, 3, 1, 2, 3, 4, 4, 4}
-	unmatch := Unmatch(a)
-	fmt.Println(unmatch)
-}
-
-// hackathon`,
+// hackathon
+`,
 		Description: "Решение упражнения Unmatch из Piscine 01edu. Полный код в секции '✅ Решение'.",
 		Concepts:    []string{"unmatch"},
 	},
 	{
 		Name:        "wdmatch",
 		DisplayName: "Wdmatch",
-		Signature:   "// signature not detected",
+		Signature:   "program in package main",
 		Solution: `package main
 
 import "os"
@@ -4492,7 +4164,7 @@ func main() {
 	{
 		Name:        "ztail",
 		DisplayName: "Ztail",
-		Signature:   "// signature not detected",
+		Signature:   "program in package main",
 		Solution: `package main
 
 import (

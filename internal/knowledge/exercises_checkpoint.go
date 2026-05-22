@@ -17,24 +17,7 @@ var checkpointExercises = []Exercise{
 		Name:        "brackets",
 		DisplayName: "CheckBrackets",
 		Signature:   "func CheckBrackets(s string) bool",
-		Solution: `package main
-
-import "os"
-
-func main() {
-	if len(os.Args) <= 1 {
-		return
-	}
-
-	for _, str := range os.Args[1:] {
-		if CheckBrackets(str) {
-			os.Stdout.WriteString("OK\n")
-		} else {
-			os.Stdout.WriteString("Error\n")
-		}
-	}
-
-}
+		Solution: `package piscine
 
 func CheckBrackets(s string) bool {
 	bra := map[rune]rune {
@@ -56,7 +39,8 @@ func CheckBrackets(s string) bool {
 		}
 	}
 	return len(stack) == 0
-}`,
+}
+`,
 		Description: "Проверка сбалансированности скобок (), [], {} в строке. Классическая задача со стеком.",
 		Concepts:    []string{"brackets", "checkpoint", "exam"},
 	},
@@ -64,20 +48,7 @@ func CheckBrackets(s string) bool {
 		Name:        "cameltosnakecase",
 		DisplayName: "CamelToSnakeCase",
 		Signature:   "func CamelToSnakeCase(s string) string",
-		Solution: `package main
-
-import (
-	"fmt"
-)
-
-func main() {
-	fmt.Println(CamelToSnakeCase("HelloWorld"))
-	fmt.Println(CamelToSnakeCase("helloWorld"))
-	fmt.Println(CamelToSnakeCase("camelCase"))
-	fmt.Println(CamelToSnakeCase("CAMELtoSnackCASE"))
-	fmt.Println(CamelToSnakeCase("camelToSnakeCase"))
-	fmt.Println(CamelToSnakeCase("hey2"))
-}
+		Solution: `package piscine
 
 func CamelToSnakeCase(s string) string {
 	if s == "" {
@@ -116,7 +87,8 @@ func CamelToSnake(s string) string {
 		}
 	}
 	return string(rSlice)
-}`,
+}
+`,
 		Description: "Конвертация camelCase в snake_case: каждая заглавная буква → _ + строчная.",
 		Concepts:    []string{"cameltosnakecase", "checkpoint", "exam", "регистр", "case"},
 	},
@@ -124,17 +96,7 @@ func CamelToSnake(s string) string {
 		Name:        "canjump",
 		DisplayName: "CanJump",
 		Signature:   "func CanJump(steps []uint) bool",
-		Solution: `package main
-
-import (
-	"checkpoint/canjump/solution"
-	"fmt"
-)
-
-func main() {
-	fmt.Println(CanJump([]uint{0}))
-	fmt.Println(solution.CanJump([]uint{0}))
-}
+		Solution: `package piscine
 
 func CanJump(steps []uint) bool {
 	if len(steps) == 0 {
@@ -150,7 +112,8 @@ func CanJump(steps []uint) bool {
 		}
 	}
 	return false
-}`,
+}
+`,
 		Description: "Можно ли допрыгать до конца массива если в каждой ячейке максимальная длина прыжка. Жадный алгоритм.",
 		Concepts:    []string{"canjump", "checkpoint", "exam"},
 	},
@@ -158,16 +121,7 @@ func CanJump(steps []uint) bool {
 		Name:        "checknumber",
 		DisplayName: "CheckNumber",
 		Signature:   "func CheckNumber(arg string) bool",
-		Solution: `package main
-
-import (
-	"fmt"
-)
-
-func main() {
-	fmt.Println(CheckNumber("Hello"))
-	fmt.Println(CheckNumber("Hello1"))
-}
+		Solution: `package piscine
 
 func CheckNumber(arg string) bool {
 	for _, r := range arg {
@@ -176,7 +130,8 @@ func CheckNumber(arg string) bool {
 		}
 	}
 	return false
-}`,
+}
+`,
 		Description: "Проверка числа на специфические условия (палиндром, простота, и т.п. — зависит от варианта).",
 		Concepts:    []string{"checknumber", "checkpoint", "exam", "число", "number", "конвертация"},
 	},
@@ -184,18 +139,7 @@ func CheckNumber(arg string) bool {
 		Name:        "concatalternate",
 		DisplayName: "ConcatAlternate",
 		Signature:   "func ConcatAlternate(slice1, slice2 []int) []int",
-		Solution: `package main
-
-import (
-	"fmt"
-)
-
-func main() {
-	fmt.Println(ConcatAlternate([]int{1, 2, 3}, []int{4, 5, 6}))
-	fmt.Println(ConcatAlternate([]int{2, 4, 6, 8, 10}, []int{1, 3, 5, 7, 9, 11}))
-	fmt.Println(ConcatAlternate([]int{1, 2, 3}, []int{4, 5, 6, 7, 8, 9}))
-	fmt.Println(ConcatAlternate([]int{1, 2, 3}, []int{}))
-}
+		Solution: `package piscine
 
 func ConcatAlternate(slice1, slice2 []int) []int {
 	result := []int{}
@@ -209,7 +153,8 @@ func ConcatAlternate(slice1, slice2 []int) []int {
 		}
 	}
 	return result
-}`,
+}
+`,
 		Description: "Соединяет два слайса чередуя элементы: a[0], b[0], a[1], b[1]...",
 		Concepts:    []string{"concatalternate", "checkpoint", "exam", "конкатенация", "concat"},
 	},
@@ -217,23 +162,14 @@ func ConcatAlternate(slice1, slice2 []int) []int {
 		Name:        "concatslice",
 		DisplayName: "ConcatSlice",
 		Signature:   "func ConcatSlice(slice1, slice2 []int) (result []int)",
-		Solution: `package main
-
-import (
-	"fmt"
-)
-
-func main() {
-	fmt.Println(ConcatSlice([]int{1, 2, 3}, []int{4, 5, 6}))
-	fmt.Println(ConcatSlice([]int{}, []int{4, 5, 6, 7, 8, 9}))
-	fmt.Println(ConcatSlice([]int{1, 2, 3}, []int{}))
-}
+		Solution: `package piscine
 
 func ConcatSlice(slice1, slice2 []int) (result []int) {
 	result = append(result, slice1...)
 	result = append(result, slice2...)
 	return result
-}`,
+}
+`,
 		Description: "Объединяет два слайса в один. Базовый append/copy паттерн.",
 		Concepts:    []string{"concatslice", "checkpoint", "exam", "конкатенация", "concat", "слайс", "slice"},
 	},
@@ -241,17 +177,7 @@ func ConcatSlice(slice1, slice2 []int) (result []int) {
 		Name:        "countalpha",
 		DisplayName: "CountAlpha",
 		Signature:   "func CountAlpha(s string) int",
-		Solution: `package main
-
-import (
-	"fmt"
-)
-
-func main() {
-	fmt.Println(CountAlpha("Hello world"))
-	fmt.Println(CountAlpha("H e l l o"))
-	fmt.Println(CountAlpha("H1e2l3l4o"))
-}
+		Solution: `package piscine
 
 func CountAlpha(s string) int {
 	c := 0
@@ -261,7 +187,8 @@ func CountAlpha(s string) int {
 		}
 	}
 	return c
-}`,
+}
+`,
 		Description: "Считает количество буквенных символов в строке.",
 		Concepts:    []string{"countalpha", "checkpoint", "exam"},
 	},
@@ -269,17 +196,7 @@ func CountAlpha(s string) int {
 		Name:        "fifthandskip",
 		DisplayName: "FifthAndSkip",
 		Signature:   "func FifthAndSkip(str string) string",
-		Solution: `package main
-
-import (
-	"fmt"
-)
-
-func main() {
-	fmt.Print(FifthAndSkip("abcdefghijklmnopqrstuwxyz"))
-	fmt.Print(FifthAndSkip("This is a short sentence"))
-	fmt.Print(FifthAndSkip("1234"))
-}
+		Solution: `package piscine
 
 func FifthAndSkip(str string) string {
 	if str == "" {
@@ -290,14 +207,14 @@ func FifthAndSkip(str string) string {
 	}
 	str = RemoveSpace(str)
 	var result string
-	
+
 	for i, char := range []rune(str) {
 		if (i-5)%6 == 0 && i!=0{
 			result += " "
 			continue
 		}
 		result += string(char)
-		
+
 	}
 	return result+"\n"
 }
@@ -311,7 +228,8 @@ func RemoveSpace(s string) string {
 		r += string(char)
 	}
 	return r
-}`,
+}
+`,
 		Description: "Печатает каждый 5-й аргумент командной строки, остальные пропускает.",
 		Concepts:    []string{"fifthandskip", "checkpoint", "exam"},
 	},
@@ -319,44 +237,7 @@ func RemoveSpace(s string) string {
 		Name:        "grouping",
 		DisplayName: "Grouping",
 		Signature:   "func Split(s string, sep rune, field bool) (res []string)",
-		Solution: `package main
-
-import (
-	"os"
-)
-
-func main() {
-	if len(os.Args[1:]) != 2 || len(os.Args[1]) < 2 || len(os.Args[2]) == 0 {
-		return
-	}
-
-	if os.Args[1][0] != '(' || os.Args[1][len([]rune(os.Args[1]))-1] != ')' {
-		return
-	}
-
-	s := Split(os.Args[1][1:len([]rune(os.Args[1]))-1], '|', false)
-	if s == nil {
-		return
-	}
-	f := Split(os.Args[2], ' ', true)
-
-	result := []string{}
-
-	for _, word := range f {
-		for _, reg := range s {
-			if Contains(word, reg) {
-				if IsNotLetter(rune(word[len(word)-1])) {
-					result = append(result, word[0:len(word)-1])
-				} else {
-					result = append(result, word)
-				}
-			}
-		}
-	}
-	for i, w := range result {
-		os.Stdout.WriteString(Itoi(i+1) + ": " + w + "\n")
-	}
-}
+		Solution: `package piscine
 
 func Split(s string, sep rune, field bool) (res []string) {
 
@@ -406,7 +287,8 @@ func Contains(s string, reg string) bool {
 		}
 	}
 	return false
-}`,
+}
+`,
 		Description: "Группирует элементы слайса по некоторому критерию (часто map[K][]V).",
 		Concepts:    []string{"grouping", "checkpoint", "exam"},
 	},
@@ -414,20 +296,7 @@ func Contains(s string, reg string) bool {
 		Name:        "iscapitalized",
 		DisplayName: "IsCapitalized",
 		Signature:   "func IsCapitalized(s string) bool",
-		Solution: `package main
-
-import (
-	"fmt"
-)
-
-func main() {
-	fmt.Println(IsCapitalized("Hello! How are you?"))
-	fmt.Println(IsCapitalized("Hello How Are You"))
-	fmt.Println(IsCapitalized("Whats 4this 100K?"))
-	fmt.Println(IsCapitalized("Whatsthis4"))
-	fmt.Println(IsCapitalized("!!!!Whatsthis4"))
-	fmt.Println(IsCapitalized(""))
-}
+		Solution: `package piscine
 
 func IsCapitalized(s string) bool {
 	if s == "" {
@@ -459,9 +328,10 @@ func Fields(s string, sep rune) (res []string) {
 	if len(stack)>0 {
 		res = append(res, string(stack))
 	}
-	
+
 	return res
-}`,
+}
+`,
 		Description: "Проверяет начинается ли строка с заглавной буквы.",
 		Concepts:    []string{"iscapitalized", "checkpoint", "exam", "проверка"},
 	},
@@ -469,18 +339,7 @@ func Fields(s string, sep rune) (res []string) {
 		Name:        "itoa",
 		DisplayName: "Itoa",
 		Signature:   "func Itoa(n int) string",
-		Solution: `package main
-
-import (
-	"fmt"
-)
-
-func main() {
-	fmt.Println(Itoa(12345))
-	fmt.Println(Itoa(0))
-	fmt.Println(Itoa(-1234))
-	fmt.Println(Itoa(987654321))
-}
+		Solution: `package piscine
 
 func Itoa(n int) string {
 	if n == 0 {
@@ -500,7 +359,8 @@ func Itoa(n int) string {
 		return "-" + s
 	}
 	return s
-}`,
+}
+`,
 		Description: "Integer-to-ASCII: конвертирует int в строку (обратное к Atoi).",
 		Concepts:    []string{"itoa", "checkpoint", "exam", "число", "number", "конвертация"},
 	},
@@ -508,11 +368,7 @@ func Itoa(n int) string {
 		Name:        "itoabase",
 		DisplayName: "ItoaBase",
 		Signature:   "func ItoaBase(n, base int) string",
-		Solution: `package main
-
-func main() {
-
-}
+		Solution: `package piscine
 
 func ItoaBase(n, base int) string {
 	if base < 2 || base > 16 {
@@ -553,7 +409,8 @@ func ItoaBase(n, base int) string {
 	}
 
 	return result
-}`,
+}
+`,
 		Description: "Конвертирует int в строку в произвольной системе счисления.",
 		Concepts:    []string{"itoabase", "checkpoint", "exam", "число", "number", "конвертация"},
 	},
@@ -561,22 +418,7 @@ func ItoaBase(n, base int) string {
 		Name:        "notdecimal",
 		DisplayName: "NotDecimal",
 		Signature:   "func NotDecimal(dec string) string",
-		Solution: `package main
-
-import (
-	"fmt"
-)
-
-func main() {
-	fmt.Print(NotDecimal("0.1"))
-	fmt.Print(NotDecimal("174.2"))
-	fmt.Print(NotDecimal("0.1255"))
-	fmt.Print(NotDecimal("1.20525856"))
-	fmt.Print(NotDecimal("-0.0f00d00"))
-	fmt.Print(NotDecimal(""))
-	fmt.Print(NotDecimal("-19.525856"))
-	fmt.Print(NotDecimal("1952"))
-}
+		Solution: `package piscine
 
 func NotDecimal(dec string) string {
 	if dec == "" {
@@ -653,7 +495,8 @@ func CheckNum(s string) bool {
 		}
 	}
 	return false
-}`,
+}
+`,
 		Description: "Возвращает true если в строке нет десятичных цифр (0-9).",
 		Concepts:    []string{"notdecimal", "checkpoint", "exam"},
 	},
@@ -734,18 +577,7 @@ func main() {
 		Name:        "revconcatalternate",
 		DisplayName: "RevConcatAlternate",
 		Signature:   "func RevConcatAlternate(slice1,slice2 []int) []int",
-		Solution: `package main
-
-import (
-	"fmt"
-)
-
-func main() {
-	fmt.Println(RevConcatAlternate([]int{1, 2, 3}, []int{4, 5, 6}))
-	fmt.Println(RevConcatAlternate([]int{1, 2, 3}, []int{4, 5, 6, 7, 8, 9}))
-	fmt.Println(RevConcatAlternate([]int{1, 2, 3, 9, 8}, []int{4, 5}))
-	fmt.Println(RevConcatAlternate([]int{1, 2, 3}, []int{}))
-}
+		Solution: `package piscine
 
 func RevConcatAlternate(slice1,slice2 []int) []int {
 	len1 := len(slice1)
@@ -764,7 +596,8 @@ func RevConcatAlternate(slice1,slice2 []int) []int {
 		}
 	}
 	return result
-}`,
+}
+`,
 		Description: "Обратный вариант concatalternate: концы слайсов идут первыми.",
 		Concepts:    []string{"revconcatalternate", "checkpoint", "exam", "конкатенация", "concat", "разворот", "reverse"},
 	},
@@ -846,21 +679,7 @@ func main() {
 		Name:        "saveandmiss",
 		DisplayName: "SaveAndMiss",
 		Signature:   "func SaveAndMiss(arg string, num int) string",
-		Solution: `package main
-
-import (
-	"fmt"
-)
-
-func main() {
-	fmt.Println(SaveAndMiss("123456789", 3))
-	fmt.Println(SaveAndMiss("abcdefghijklmnopqrstuvwyz", 3))
-	fmt.Println(SaveAndMiss("", 3))
-	fmt.Println(SaveAndMiss("hello you all ! ", 0))
-	fmt.Println(SaveAndMiss("what is your name?", 0))
-	fmt.Println(SaveAndMiss("go Exercise Save and Miss", -5))
-	fmt.Println(SaveAndMiss("e 5£ @ 8* 7 =56 ;", 2))
-}
+		Solution: `package piscine
 
 func SaveAndMiss(arg string, num int) string {
 	if num <= 0 || num > len(arg) {
@@ -878,7 +697,8 @@ func SaveAndMiss(arg string, num int) string {
 		str += string(rune(arg[i]))
 	}
 	return str
-}`,
+}
+`,
 		Description: "Печатает аргументы через один: первый, пропустить, третий, пропустить...",
 		Concepts:    []string{"saveandmiss", "checkpoint", "exam"},
 	},
@@ -886,23 +706,11 @@ func SaveAndMiss(arg string, num int) string {
 		Name:        "slice",
 		DisplayName: "Slice",
 		Signature:   "func Slice(a []string, nbrs ...int) []string",
-		Solution: `package main
+		Solution: `package piscine
 
 import (
-	"fmt"
 	//"checkpoint/slice/solution"
-	"github.com/01-edu/go-tests/solutions"
 )
-
-func main() {
-	a := []string{"coding", "algorithm", "ascii", "package", "golang"}
-	fmt.Printf("%#v\n", solutions.Slice(a, 1))
-	fmt.Printf("%#v\n", solutions.Slice(a, 1, 10))
-	fmt.Printf("%#v\n", solutions.Slice(a, -3))
-	fmt.Printf("%#v\n", solutions.Slice(a, -2, 1))
-	fmt.Printf("%#v\n", solutions.Slice(a, 2, 0))
-}
-
 func Slice(a []string, nbrs ...int) []string {
 	if len(nbrs) == 0 {
 		return a
@@ -940,7 +748,8 @@ func isNegative(a []string, n int) int {
 	}
 	return n
 
-}`,
+}
+`,
 		Description: "Возвращает подслайс между двумя индексами (start inclusive, end exclusive).",
 		Concepts:    []string{"slice", "checkpoint", "exam", "слайс"},
 	},
@@ -948,16 +757,7 @@ func isNegative(a []string, n int) int {
 		Name:        "thirdtimeisacharm",
 		DisplayName: "ThirdTimeIsACharm",
 		Signature:   "func ThirdTimeIsACharm(str string) string",
-		Solution: `package main
-
-import "fmt"
-
-func main() {
-	fmt.Print(ThirdTimeIsACharm("123456789"))
-	fmt.Print(ThirdTimeIsACharm(""))
-	fmt.Print(ThirdTimeIsACharm("a b c d e f"))
-	fmt.Print(ThirdTimeIsACharm("12"))
-}
+		Solution: `package piscine
 
 func ThirdTimeIsACharm(str string) string {
 	var r []rune
@@ -967,7 +767,8 @@ func ThirdTimeIsACharm(str string) string {
 		}
 	}
 	return string(r) + "\n"
-}`,
+}
+`,
 		Description: "Печатает каждое третье вхождение символа в строке.",
 		Concepts:    []string{"thirdtimeisacharm", "checkpoint", "exam"},
 	},
@@ -975,18 +776,7 @@ func ThirdTimeIsACharm(str string) string {
 		Name:        "weareunique",
 		DisplayName: "WeAreUnique",
 		Signature:   "func WeAreUnique(str1, str2 string) int",
-		Solution: `package main
-
-import (
-	"fmt"
-)
-
-func main() {
-	fmt.Println(WeAreUnique("foo", "boo"))
-	fmt.Println(WeAreUnique("", ""))
-	fmt.Println(WeAreUnique("abc", "def"))
-	fmt.Println(WeAreUnique("26235e50", "4478q92"))
-}
+		Solution: `package piscine
 
 func WeAreUnique(str1, str2 string) int {
 	if str1 == "" && str2 ==""{
@@ -1018,7 +808,8 @@ func StrContainsChar(r rune, s string) bool {
 		}
 	}
 	return false
-}`,
+}
+`,
 		Description: "Проверяет что все символы в строке уникальны.",
 		Concepts:    []string{"weareunique", "checkpoint", "exam"},
 	},
@@ -1026,20 +817,11 @@ func StrContainsChar(r rune, s string) bool {
 		Name:        "wordflip",
 		DisplayName: "WordFlip",
 		Signature:   "func WordFlip(str string) string",
-		Solution: `package main
+		Solution: `package piscine
 
 import (
-	"fmt"
 	"strings"
 )
-
-func main() {
-	fmt.Print(WordFlip("First second last"))
-	fmt.Print(WordFlip(""))
-	fmt.Print(WordFlip("     "))
-	fmt.Print(WordFlip(" hello  all  of  you! "))
-}
-
 func WordFlip(str string) string {
 	if str == "" {
 		return "Invalid Output"
@@ -1053,7 +835,8 @@ func WordFlip(str string) string {
 		result += a[i] + " "
 	}
 	return result[:len(result)-1] + "\n"
-}`,
+}
+`,
 		Description: "Разворачивает слова в строке: 'hello world' → 'world hello'.",
 		Concepts:    []string{"wordflip", "checkpoint", "exam"},
 	},
@@ -1061,17 +844,7 @@ func WordFlip(str string) string {
 		Name:        "zipstring",
 		DisplayName: "ZipString",
 		Signature:   "func ZipString(s string) string",
-		Solution: `package main
-
-import (
-	"fmt"
-)
-
-func main() {
-	fmt.Println(ZipString("YouuungFellllas"))
-	fmt.Println(ZipString("Thee quuick browwn fox juumps over the laaazy dog"))
-	fmt.Println(ZipString("Helloo Therre!"))
-}
+		Solution: `package piscine
 
 func ZipString(s string) string {
 	r := ""
@@ -1095,7 +868,8 @@ func Itoa(n int) (s string) {
 		n /= 10
 	}
 	return s
-}`,
+}
+`,
 		Description: "Сжимает строку как run-length encoding: 'aaabbc' → 'a3b2c1'.",
 		Concepts:    []string{"zipstring", "checkpoint", "exam", "строка", "string"},
 	},
