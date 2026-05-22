@@ -147,14 +147,21 @@ func FindByName(name string) *Exercise {
 // scoreEntry is the shared scoring function used for both exercises and
 // concepts. Pulled out of the per-type loop so both registries are ranked
 // by the exact same rules, which keeps the cross-type ordering predictable.
+//
+// Important: name and displayName match on WORD BOUNDARIES, not substring.
+// Otherwise the short name "point" would steal "помоги решить pointone"
+// from the more specific "pointone" entry. Concepts still match on
+// substring because they're often multi-word phrases ("простое число").
 func scoreEntry(name, displayName, description string, concepts []string, q string, qSet map[string]struct{}) int {
 	score := 0
-	if strings.Contains(q, name) {
+	if _, ok := qSet[name]; ok {
 		score += 100
 	}
 	displayLower := strings.ToLower(displayName)
-	if displayLower != name && strings.Contains(q, displayLower) {
-		score += 50
+	if displayLower != name {
+		if _, ok := qSet[displayLower]; ok {
+			score += 50
+		}
 	}
 	for _, c := range concepts {
 		if strings.Contains(q, strings.ToLower(c)) {

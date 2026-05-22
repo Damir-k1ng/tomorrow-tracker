@@ -207,7 +207,7 @@ func IsPrime(nb int) bool {
 	return true
 }`,
 		Description: "Проверяет является ли nb простым числом. Оптимизация: достаточно проверить делители до sqrt(nb).",
-		Concepts:    []string{"простое число", "prime", "is prime", "делитель"},
+		Concepts:    []string{"простое число", "prime", "is prime", "делитель", "проверить простое", "проверка простого", "проверить prime", "является простым"},
 	},
 	{
 		Name:        "findnextprime",
