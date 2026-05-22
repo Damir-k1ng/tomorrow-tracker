@@ -5,7 +5,55 @@ import (
 	"encoding/hex"
 	"sync"
 	"time"
+
+	"github.com/damirkabdulla/tomorrow-tracker/internal/knowledge"
 )
+
+// contentVersion is a short hex digest of every input that materially
+// changes the model's output for a given (mode, question): the four
+// system prompts plus the entire Piscine catalog (exercise solutions,
+// samples, concepts, examples). Mixed into every cache key so that the
+// moment we ship a prompt fix or RAG update, all existing cached
+// answers become unreachable — no stale "wrong" replies linger for
+// the cache TTL.
+//
+// Computed once at package init. Cheap (~100KB of strings through
+// SHA-256). 12 hex chars (48 bits) is far beyond birthday-collision
+// risk for our scale; we don't need full digest length here.
+var contentVersion = computeContentVersion(
+	[]string{promptSolve, promptExplain, promptReview, promptTutorial},
+	knowledge.Exercises,
+	knowledge.Concepts,
+)
+
+// computeContentVersion is the pure version of contentVersion exposed
+// for testing — call sites in production should use the package-level
+// `contentVersion`. Order of inputs is fixed and stable so the digest
+// is reproducible across builds.
+func computeContentVersion(prompts []string, exercises []knowledge.Exercise, concepts []knowledge.Concept) string {
+	h := sha256.New()
+	for _, p := range prompts {
+		h.Write([]byte(p))
+		h.Write([]byte{0})
+	}
+	for i := range exercises {
+		ex := &exercises[i]
+		h.Write([]byte(ex.Name))
+		h.Write([]byte{0})
+		h.Write([]byte(ex.Solution))
+		h.Write([]byte{0})
+		h.Write([]byte(ex.Samples))
+		h.Write([]byte{0})
+	}
+	for i := range concepts {
+		c := &concepts[i]
+		h.Write([]byte(c.Name))
+		h.Write([]byte{0})
+		h.Write([]byte(c.Example))
+		h.Write([]byte{0})
+	}
+	return hex.EncodeToString(h.Sum(nil))[:12]
+}
 
 // answerCache is the AI reply cache. Educational Q&A is highly repetitive
 // — many students ask the same Piscine exercise the same way. Cached
@@ -44,10 +92,15 @@ func newAnswerCache(ttl time.Duration, maxEntries int) *answerCache {
 	return c
 }
 
-// Key derives the cache key from the mode and the user's question. History
-// is excluded on purpose — see the package comment for the reasoning.
+// cacheKey derives the cache key from contentVersion + mode + question.
+// History is excluded on purpose (see the package comment). The
+// contentVersion prefix means a prompt edit or knowledge update
+// invalidates every existing entry on the next deploy — no manual cache
+// flush required, no stale "old prompt" answers leaking past the TTL.
 func cacheKey(mode Mode, question string) string {
 	h := sha256.New()
+	h.Write([]byte(contentVersion))
+	h.Write([]byte{0})
 	h.Write([]byte(mode))
 	h.Write([]byte{0}) // separator so "modeQ" doesn't collide with "modQ"
 	h.Write([]byte(question))

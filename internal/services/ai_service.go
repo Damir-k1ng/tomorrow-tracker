@@ -467,6 +467,30 @@ func (s *AIService) Ask(ctx context.Context, userID int64, question string) (str
 	mode := s.GetMode(userID)
 	prior := s.snapshotHistory(userID)
 
+	// Disambiguation gate — runs before cache and before Pioneer. When the
+	// student's question maps to N exercises tied at the top score with no
+	// direct hit (e.g. "помоги с прямоугольником" matches all 5 Quad*),
+	// asking is better than guessing: the wrong canonical solution would
+	// be both confidently wrong AND cached for an hour. We only apply this
+	// to first-turn Solve queries — mid-conversation the context is what
+	// disambiguates, and other modes don't lean on the Piscine catalog
+	// the same way.
+	if mode == ModeSolve && len(prior) == 0 {
+		if amb := knowledge.Disambiguate(question); amb != nil {
+			reply := buildDisambiguationReply(amb)
+			s.log.Info("ai disambiguation",
+				slog.Int64("user_id", userID),
+				slog.Int("candidates", len(amb.Candidates)),
+				slog.Int("score", amb.Score),
+			)
+			// Deliberately skipping appendTurn + cache: the student's
+			// follow-up ("QuadA") is a fresh first-turn question, not
+			// a continuation, so we don't want stale history pulling
+			// the prompt off-track.
+			return reply, nil
+		}
+	}
+
 	// Cache lookup happens only for first-turn questions: when the user
 	// has prior history, the same question text can mean very different
 	// things ("ещё пример", "а почему?") so a hash on the question alone
@@ -509,6 +533,49 @@ func (s *AIService) Ask(ctx context.Context, userID int64, question string) (str
 	}
 	s.appendTurn(userID, question, reply)
 	return reply, nil
+}
+
+// buildDisambiguationReply renders the user-facing clarification message
+// when knowledge.Disambiguate flags a tied query. We list the candidate
+// exercises by DisplayName with a one-line distinguishing detail (the
+// first ~60 chars of the description), then prompt the student to pick.
+//
+// The wording is deliberately short — students typically just want to
+// type "QuadA" and move on. The returned text is plain Russian, no
+// HTML/Markdown, so the existing reply pipeline can render it through
+// markdownToTelegramHTML without surprises.
+func buildDisambiguationReply(amb *knowledge.Ambiguity) string {
+	var b strings.Builder
+	b.WriteString("🤔 Нашёл несколько похожих задач — уточни, какую решаем:\n\n")
+	for _, ex := range amb.Candidates {
+		b.WriteString("• **")
+		b.WriteString(ex.DisplayName)
+		b.WriteString("** — ")
+		b.WriteString(shortDescription(ex.Description))
+		b.WriteString("\n")
+	}
+	b.WriteString("\nНапиши имя нужной (например, `")
+	if len(amb.Candidates) > 0 {
+		b.WriteString(amb.Candidates[0].DisplayName)
+	}
+	b.WriteString("`) — и я пришлю эталонное решение.")
+	return b.String()
+}
+
+// shortDescription trims an exercise's Description to a one-line hook
+// (max ~80 runes) for the disambiguation list. Stops at the first period
+// so we don't bisect a sentence mid-clause.
+func shortDescription(d string) string {
+	d = strings.TrimSpace(d)
+	if idx := strings.Index(d, ". "); idx > 0 && idx < 80 {
+		return d[:idx+1]
+	}
+	const maxLen = 80
+	runes := []rune(d)
+	if len(runes) <= maxLen {
+		return d
+	}
+	return string(runes[:maxLen]) + "…"
 }
 
 // buildReferenceBlock formats RAG hits into a system-prompt addendum the

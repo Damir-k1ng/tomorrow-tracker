@@ -102,6 +102,87 @@ func TestSearch(t *testing.T) {
 	}
 }
 
+func TestDisambiguate(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		name         string
+		query        string
+		wantAmbig    bool
+		wantNames    []string // expected DisplayNames in candidates (any order, but all must be present)
+		wantMinScore int      // 0 = no lower bound
+	}{
+		{
+			name:      "direct name returns nil — QuadA wins outright",
+			query:     "помоги решить QuadA",
+			wantAmbig: false,
+		},
+		{
+			name:      "rectangle concept ties across all 5 Quads",
+			query:     "напиши прямоугольник",
+			wantAmbig: true,
+			wantNames: []string{"QuadA", "QuadB", "QuadC", "QuadD", "QuadE"},
+		},
+		{
+			name:      "ramka concept also ties Quads",
+			query:     "нарисуй рамку",
+			wantAmbig: true,
+			wantNames: []string{"QuadA", "QuadB", "QuadC", "QuadD", "QuadE"},
+		},
+		{
+			name:      "unrelated query — no ambiguity, no hits",
+			query:     "погода в москве",
+			wantAmbig: false,
+		},
+		{
+			name:      "empty query — safe nil",
+			query:     "",
+			wantAmbig: false,
+		},
+		{
+			name:      "single quad keyword still hits one exercise distinctly",
+			query:     "помоги с quadc",
+			wantAmbig: false, // direct name match overrides
+		},
+	}
+
+	for _, tc := range cases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			got := Disambiguate(tc.query)
+			if !tc.wantAmbig {
+				if got != nil {
+					names := make([]string, len(got.Candidates))
+					for i, ex := range got.Candidates {
+						names[i] = ex.DisplayName
+					}
+					t.Fatalf("expected nil (no ambiguity) for %q, got candidates=%v score=%d", tc.query, names, got.Score)
+				}
+				return
+			}
+			if got == nil {
+				t.Fatalf("expected ambiguity for %q, got nil", tc.query)
+			}
+			if len(got.Candidates) < 2 {
+				t.Fatalf("ambiguity must have ≥2 candidates, got %d", len(got.Candidates))
+			}
+			seen := make(map[string]bool, len(got.Candidates))
+			for _, ex := range got.Candidates {
+				seen[ex.DisplayName] = true
+			}
+			for _, want := range tc.wantNames {
+				if !seen[want] {
+					gotNames := make([]string, 0, len(got.Candidates))
+					for _, ex := range got.Candidates {
+						gotNames = append(gotNames, ex.DisplayName)
+					}
+					t.Errorf("candidates missing %q; got %v", want, gotNames)
+				}
+			}
+		})
+	}
+}
+
 func TestFindByName(t *testing.T) {
 	t.Parallel()
 	if ex := FindByName("pointone"); ex == nil || ex.DisplayName != "PointOne" {

@@ -145,6 +145,78 @@ func Search(question string, maxResults int) []Match {
 	return matches
 }
 
+// Ambiguity reports that a free-form question maps to several plausible
+// exercises with no clear winner — typically the student named a concept
+// shared by multiple tasks ("прямоугольник", "линейный список") without
+// picking a specific exercise. The AI service uses this signal to ask
+// the student to disambiguate instead of guessing and producing the
+// wrong canonical solution.
+type Ambiguity struct {
+	// Candidates are the exercises tied at the top score, in registry
+	// order (which matches "QuadA, QuadB, ...Ee" rather than some
+	// surprising rearrangement).
+	Candidates []*Exercise
+	// Score is the shared top score across all Candidates. Useful for
+	// logging and for the caller to decide whether the tie is even
+	// strong enough to warrant a clarification prompt.
+	Score int
+}
+
+// Disambiguate runs Search and reports whether the result is genuinely
+// ambiguous — i.e. multiple Piscine exercises tie for the top score with
+// no direct-name winner. Returns nil when:
+//
+//   - The query has a direct exercise-name hit (top score ≥ 100). One
+//     candidate dominates; asking would be annoying.
+//   - The top match is weak (score below ambiguityFloor). Most likely an
+//     unrelated query — let the model answer from its own weights.
+//   - Only one exercise reaches the top score (no tie).
+//
+// When non-nil, the caller should present Candidates to the student and
+// skip the LLM round-trip. Disambiguation answers are never cached: the
+// next question depends on which option the student picks.
+func Disambiguate(question string) *Ambiguity {
+	matches := Search(question, 5)
+	if len(matches) < 2 {
+		return nil
+	}
+	top := matches[0].Score
+	// Direct name match — no ambiguity, one exercise clearly wins.
+	if top >= directNameScore {
+		return nil
+	}
+	// Tie must be strong enough to be worth asking. Concepts-only hits
+	// (single +10 from a shared keyword) are exactly the case where
+	// asking helps.
+	if top < ambiguityFloor {
+		return nil
+	}
+	var tied []*Exercise
+	for _, m := range matches {
+		if m.Score != top {
+			break // matches are sorted descending; first miss ends the tie
+		}
+		if m.Kind == KindExercise && m.Exercise != nil {
+			tied = append(tied, m.Exercise)
+		}
+	}
+	if len(tied) < 2 {
+		return nil
+	}
+	return &Ambiguity{Candidates: tied, Score: top}
+}
+
+const (
+	// directNameScore is the score awarded by scoreEntry when the
+	// question contains the canonical lowercase exercise name. Anything
+	// at or above this is treated as a direct hit — never ambiguous.
+	directNameScore = 100
+	// ambiguityFloor is the minimum top score that justifies pausing
+	// the pipeline to ask "which one?". Below this we'd interrupt the
+	// student over a coincidence, which is worse than answering best-guess.
+	ambiguityFloor = 10
+)
+
 // FindByName returns the exercise with the given canonical name (e.g.
 // "pointone"), or nil if it's not in the registry. Useful for direct lookups
 // that bypass the scorer when the caller already knows the exercise key.
